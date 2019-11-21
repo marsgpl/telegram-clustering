@@ -1,0 +1,1 @@
+globals = {"trace", "class", "args}

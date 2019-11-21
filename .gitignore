@@ -9,3 +9,4 @@
 *.so
 *.luac
 .DS_Store
+/input

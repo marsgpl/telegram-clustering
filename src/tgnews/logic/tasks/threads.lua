@@ -1,0 +1,2 @@
+return function(cluster)
+end

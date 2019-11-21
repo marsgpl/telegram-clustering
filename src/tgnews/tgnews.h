@@ -7,11 +7,8 @@
 
 #define ENTRY_POINT_FILE "logic/tgnews.luac"
 
-#define TASK_LANGUAGES "languages"
-#define TASK_NEWS "news"
-#define TASK_CATEGORIES "categories"
-#define TASK_THREADS "threads"
-#define TASK_TOP "top"
+#define PACKAGE_PATH "libs/?.luac;./?.luac"
+#define PACKAGE_CPATH "libs/?.so"
 
 #define USAGE "\nUsage:  tgnews TASK SRCDIR\n" \
 "\n" \
@@ -38,6 +35,13 @@
     lua_pop(L, 1); \
     lua_close(L); \
     return 1; \
+}
+
+#define tgnews_lua_require(L, module_name) { \
+    lua_getglobal(L, "require"); \
+    lua_pushstring(L, module_name); \
+    lua_call(L, 1, 1); \
+    lua_setglobal(L, module_name); \
 }
 
 int main(int argc, const char **argv);

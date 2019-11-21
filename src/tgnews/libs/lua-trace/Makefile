@@ -10,4 +10,4 @@ clean:
 
 install:
 	mkdir -p $(INSTALL_DIR)
-	cp $(NAME).luac $(INSTALL_DIR)/$(NAME).luac
+	cp $(NAME).luac $(INSTALL_DIR)
