@@ -31,6 +31,4 @@
         deb-packages.txt
 
     do not forget:
-        - lua make clean before zipping
-        - add -s option to libs/logic/tgnews?
-        - uncomment result encoding to json
+        - make clean before zipping

@@ -13,9 +13,6 @@ int main(int argc, const char **argv) {
 
     signal(SIGINT, tgnews_on_sigint);
 
-    lua_pushboolean(L, 1);
-    lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
-
     luaL_openlibs(L);
 
     lua_getglobal(L, "package");

@@ -1,50 +1,47 @@
+local thread = require "thread"
+local json = require "cjson"
 local fs = require "fs"
-local json = require "json"
 
 local c = class:Cluster {
-    cpus = 8, -- cores
+    cores = 8,
     ram = 16, -- gigs
-    base_task_path = "logic/tasks",
+    task_base_path = "logic/tasks",
+    task_ext = "luac",
+    workers = {},
+    worker_params = {
+        master = {
+            addr = { -- wait for conns
+                ip = "127.0.0.1",
+                port = 0,
+            }
+        },
+        worker = {
+            addr = { -- initiates conn
+                ip = "127.0.0.1",
+                port = 0,
+            }
+        }
+    }
 }
 
 function c:init()
-    local result = self:run_task()
-    local output = json.encode(result)
-    io.write(output):flush()
-trace(result)
+    self:init_router()
+    self:init_workers()
 end
 
-function c:run_task()
-    local task_name = self.task:gsub("[^%a]", ""):lower()
-
-    if #task_name == 0 then
-        error("task name must be [a-z]")
-    end
-
-    local task_path = self.base_task_path .. "/" .. task_name
-
-    local task_fu = require(task_path)
-
-    return task_fu(self)
+function c:init_router()
 end
 
-function c:traverse_src_dir(...)
-    return self:traverse_dir(self.src_dir, ...)
-end
+function c:init_workers()
+    local workers_amount = self.cores
+    local worker_file_path = self.task_base_path .. "/" .. self.task .. "." .. self.task_ext
 
-function c:traverse_dir(dir, on_file, ctx)
-    for file_name in fs.readdir(dir) do
-        if ctx and ctx.stop then return end
+    -- file exists?
+    assert(fs.stat(worker_file_path))
 
-        if not self.ignore_files[file_name] then
-            local file_path = dir .. "/" .. file_name
-
-            if fs.isdir(file_path) then
-                self:traverse_dir(file_path, on_file, ctx)
-            else
-                on_file(file_path, file_name, ctx)
-            end
-        end
+    for i = 1, workers_amount do
+        local t, tid = assert(thread.start(worker_file_path, self.worker_params))
+        self.workers[tid] = t
     end
 end
 
