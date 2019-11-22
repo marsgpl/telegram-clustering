@@ -1,1 +1,1 @@
-globals = {"trace", "class", "args}
+globals = {"trace", "class", "args"}

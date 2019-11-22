@@ -10,7 +10,7 @@
 ## MULTIPLE_THREADS:        Must be set when Lua CJSON may be used in a
 ##                          multi-threaded application. Requries _pthreads_.
 
-LUA_ROOT_DIR = ../../../lua-5.3.5/src
+LUA_ROOT_DIR = ../../../lua-5.3.5
 INSTALL_DIR = ../../../../libs
 
 ##### Build defaults #####
@@ -19,7 +19,7 @@ TARGET =            cjson.so
 PREFIX =            /usr/local
 #CFLAGS =            -g -Wall -pedantic -fno-inline
 CFLAGS =            -O3 -Wall -pedantic -DNDEBUG
-CJSON_CFLAGS =      -fpic -m64 -I$(LUA_ROOT_DIR)
+CJSON_CFLAGS =      -fpic -m64 -I$(LUA_ROOT_DIR)/src
 CJSON_LDFLAGS =     -shared
 LUA_INCLUDE_DIR =   $(PREFIX)/include
 LUA_CMODULE_DIR =   $(PREFIX)/lib/lua/$(LUA_VERSION)

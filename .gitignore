@@ -1,12 +1,12 @@
+/input
+/libs
+/logic
 /src/lua-5.3.5/src/lua
 /src/lua-5.3.5/src/luac
 /src/lua-5.3.5/src/liblua.a
 /src/tgnews/tgnews
 /tgnews
-/libs
-/logic
 *.o
 *.so
 *.luac
 .DS_Store
-/input
