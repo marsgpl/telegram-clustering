@@ -1,46 +1,50 @@
 NAME = tgnews
-ROOT_DIR = ../..
-LUA_ROOT_DIR = ../lua-5.3.5
+
+ROOT_DIR = /tgnews
+LUA_ROOT_DIR = $(ROOT_DIR)/src/lua-5.3.5
+LUA_SRC_DIR = $(LUA_ROOT_DIR)/src
+LOGIC_DST_DIR = $(ROOT_DIR)/logic
+LIBS_DST_DIR = $(ROOT_DIR)/libs
+
 CC = gcc
 LD = gcc
 CCFLAGS = -c -m64 -std=gnu99 -O2 -Wall -Werror
 LDFLAGS =
-INCS = -I$(LUA_ROOT_DIR)/src
-LIBS = -L$(LUA_ROOT_DIR)/src -llua -lm -Wl,-E -ldl
+INCS = -I$(LUA_SRC_DIR)
+LIBS = -L$(LUA_SRC_DIR) -llua -lm -Wl,-E -ldl
 
 MAIN_T = $(NAME)
 MAIN_O = $(NAME).o
 
-build: $(MAIN_T)
+all: lua main libs logic
 
-clean:
-	rm -f $(MAIN_T) $(MAIN_O)
+clean: lua- main- libs- logic-
 
-build_lua:
+lua:
 	cd $(LUA_ROOT_DIR) && make linux
 
-clean_lua:
+lua-:
 	cd $(LUA_ROOT_DIR) && make clean
 
-build_libs:
-	sh libs.sh
-
-clean_libs:
-	sh libs.sh clean
-
-build_logic:
-	sh logic.sh
-
-clean_logic:
-	sh logic.sh clean
-
-install:
+main: $(MAIN_T)
 	cp $(MAIN_T) $(ROOT_DIR)
 
-uninstall:
-	rm $(ROOT_DIR)/$(MAIN_T)
-	rm -rf $(ROOT_DIR)/libs
-	rm -rf $(ROOT_DIR)/logic
+main-:
+	rm -f *.o $(MAIN_T)
+	rm -f $(ROOT_DIR)/$(MAIN_T)
+
+libs:
+	bash libs.sh
+
+libs-:
+	bash libs.sh clean
+	rm -rf $(LIBS_DST_DIR)
+
+logic:
+	bash logic.sh
+
+logic-:
+	rm -rf $(LOGIC_DST_DIR)
 
 $(MAIN_T): $(MAIN_O)
 	$(LD) $(LDFLAGS) -o $@ $^ $(LIBS)
@@ -48,6 +52,6 @@ $(MAIN_T): $(MAIN_O)
 .c.o:
 	$(CC) $(CCFLAGS) -o $@ $< $(INCS)
 
-$(MAIN_O): $(NAME).h
+$(MAIN_O): $(NAME).h shared/tgnews_lua.h
 
 .PHONY: logic libs

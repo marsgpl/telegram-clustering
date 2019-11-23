@@ -1,4 +1,4 @@
-local Cluster = require "logic/Cluster"
+local Cluster = require "Cluster"
 
 Cluster:new {
     task = args.task,

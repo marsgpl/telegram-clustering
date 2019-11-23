@@ -1,15 +1,14 @@
 #include "lua_thread.h"
 
 LUAMOD_API int luaopen_thread(lua_State *L) {
-    lua_newmt(L, LUA_MT_THREAD, __thread_index, lua_thread_gc);
-
+    tgnews_lua_newmt(L, LUA_MT_THREAD, __thread_index, lua_thread_gc);
     luaL_newlib(L, __index);
     return 1;
 }
 
 // arg#1 - string - file to execute
-// arg#2 - table - meta args
-// arg#3 - table - meta keys to copy
+// arg#2 - table - meta args to xcopy
+// arg#3 - table - meta keys (lightuserdatas) to share by pointer between registryindexes
 static int lua_thread_start(lua_State *L) {
     int r;
 
@@ -17,37 +16,36 @@ static int lua_thread_start(lua_State *L) {
 
     lua_ud_thread *thread = (lua_ud_thread *)lua_newuserdata(L, sizeof(lua_ud_thread));
 
-    if (!thread) {
-        lua_fail(L, "lua_ud_thread alloc failed", 0);
+    if (thread == NULL) {
+        tgnews_lua_fail(L, "lua_ud_thread alloc failed", 0);
     }
 
     thread->L = luaL_newstate();
 
-    if (!thread->L) {
-        lua_fail(L, "luaL_newstate alloc failed", 0);
+    if (thread->L == NULL) {
+        tgnews_lua_fail(L, "luaL_newstate alloc failed", 0);
     }
 
     thread->id = inc_id();
     thread->state = LUA_THREAD_STATE_RUNNING;
 
     lua_atpanic(thread->L, lua_thread_atpanic);
+
     luaL_openlibs(thread->L);
 
     lua_getglobal(L, "package");
     lua_getfield(L, -1, "path");
     lua_getfield(L, -2, "cpath");
-
     lua_getglobal(thread->L, "package");
     lua_pushstring(thread->L, luaL_checkstring(L, -1));
-    lua_setfield(thread->L, -2, "cpath");
     lua_pushstring(thread->L, luaL_checkstring(L, -2));
-    lua_setfield(thread->L, -2, "path");
-
+    lua_setfield(thread->L, -3, "path");
+    lua_setfield(thread->L, -2, "cpath");
     lua_pop(thread->L, 1);
     lua_pop(L, 3);
 
     // meta id
-    lua_pushnumber(thread->L, thread->id);
+    lua_pushinteger(thread->L, thread->id);
     lua_setfield(thread->L, LUA_REGISTRYINDEX, LUA_THREAD_ID_METAFIELD);
 
     // meta args
@@ -58,12 +56,13 @@ static int lua_thread_start(lua_State *L) {
     }
     lua_setfield(thread->L, LUA_REGISTRYINDEX, LUA_THREAD_ARGS_METAFIELD);
 
-    // meta keys to copy - example - { "_zmq_ctx" }
+    // meta keys
     if (lua_istable(L, 3)) {
         lua_pushnil(L);
         while (lua_next(L, 3) != 0) {
             r = lua_getfield(L, LUA_REGISTRYINDEX, lua_tostring(L, -1));
-            if (r==LUA_TLIGHTUSERDATA) {
+
+            if (r == LUA_TLIGHTUSERDATA) {
                 lua_pushlightuserdata(thread->L, lua_touserdata(L, -1));
                 lua_setfield(thread->L, LUA_REGISTRYINDEX, lua_tostring(L, -2));
             }
@@ -85,12 +84,12 @@ static int lua_thread_start(lua_State *L) {
 
     if (r != 0) {
         lua_close(thread->L);
-        lua_fail(L, "thread creation failed", r);
+        tgnews_lua_fail(L, "thread creation failed", r);
     }
 
     luaL_setmetatable(L, LUA_MT_THREAD);
 
-    lua_pushnumber(L, thread->id);
+    lua_pushinteger(L, thread->id);
 
     return 2;
 }
@@ -115,6 +114,7 @@ static int lua_thread_stop(lua_State *L) {
     }
 
     lua_settop(L, 1);
+
     return 1;
 }
 
@@ -126,6 +126,7 @@ static int lua_thread_join(lua_State *L) {
     }
 
     lua_settop(L, 1);
+
     return 1;
 }
 
@@ -150,34 +151,26 @@ static uint64_t inc_id(void) {
 }
 
 static void *lua_thread_create_worker(void *arg) {
-    int r;
-
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
     lua_ud_thread *thread = (lua_ud_thread *)arg;
     lua_State *L = thread->L;
 
-    r = luaL_loadfilex(L, lua_tostring(L, 1), "bt");
+    lua_thread_require(L, "trace");
+    lua_thread_require(L, "class");
+    lua_thread_require(L, "thread");
 
-    if (r != LUA_OK) {
-        lua_thread_atpanic(L);
-    } else {
-        r = lua_custom_pcall(L, 0, 0);
+    lua_thread_dofile(L, lua_tostring(L, 1));
 
-        if (r != LUA_OK) {
-            lua_thread_atpanic(L);
-        }
-    }
-
-    __sync_bool_compare_and_swap(&thread->state, LUA_THREAD_STATE_RUNNING, LUA_THREAD_STATE_DEAD);
-
-    pthread_exit(NULL);
+    lua_thread_on_end(thread);
 }
 
 static int lua_thread_atpanic(lua_State *L) {
     lua_getfield(L, LUA_REGISTRYINDEX, LUA_THREAD_ID_METAFIELD);
-    fprintf(stderr, "lua thread #%zu: PANIC: %s\n", (size_t)lua_tonumber(L, -1), lua_tostring(L, -2));
+    fprintf(stderr, "lua thread #%zu error: %s\n", (size_t)lua_tonumber(L, -1), lua_tostring(L, -2));
+    lua_pop(L, 2);
+    tgnews_lua_trace_stack(L);
     return 0;
 }
 
@@ -226,19 +219,21 @@ static void lua_thread_xcopy(lua_State *fromL, int fromIndex, lua_State *toL) {
     }
 }
 
-static int lua_custom_traceback(lua_State *L) {
+static int lua_thread_pcall_errmsg_handler(lua_State *L) {
     const char *msg = lua_tostring(L, 1);
-    if (msg) {
-        luaL_traceback(L, L, msg, 1);
-    }
-    return 1;
-}
 
-static int lua_custom_pcall(lua_State *L, int narg, int nres) {
-    int base = lua_gettop(L) - narg; // traceback index
-    lua_pushcfunction(L, lua_custom_traceback);
-    lua_insert(L, base);
-    int r = lua_pcall(L, narg, nres, base);
-    lua_remove(L, base);
-    return r;
+    if (msg == NULL) { // error object is not a string
+        if (luaL_callmeta(L, 1, "__tostring") && lua_type(L, -1) == LUA_TSTRING) {
+            // error object produces a string via __tostring metatable method call
+            // return this result w/o traceback
+            return 1;
+        } else {
+            msg = lua_pushfstring(L, "(error object is a %s value)", luaL_typename(L, 1));
+        }
+    }
+
+    // append traceback to msg
+    luaL_traceback(L, L, msg, 1);
+
+    return 1; // return traceback
 }

@@ -1,14 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
-. helpers.sh
+. shared/const.sh
+. shared/helpers.sh
 
-LUAC=../lua-5.3.5/src/luac
+mkdir -p $LOGIC_DST_DIR || fail
 
-mkdir -p ../../logic
-
-cd logic
+cd $LOGIC_SRC_DIR || fail
 
 for file in $(find . -maxdepth 99 -type f); do
-    mkdir -p ../../$(dirname $file)
-    $LUAC -o ../../${file}c $file || exit 1
+    echo -e "\e[0;36mlogic:\e[0m $file"
+
+    mkdir -p $LOGIC_DST_DIR/$(dirname $file) || fail
+    $LUAC -o $LOGIC_DST_DIR/${file}c $file || fail
 done

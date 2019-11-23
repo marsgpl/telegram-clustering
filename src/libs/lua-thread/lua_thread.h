@@ -1,7 +1,6 @@
 #include <pthread.h>
 
-#include "lualib.h"
-#include "lauxlib.h"
+#include "tgnews_lua.h"
 
 #define LUA_MT_THREAD "mt.thread"
 
@@ -11,43 +10,34 @@
 #define LUA_THREAD_STATE_RUNNING 0
 #define LUA_THREAD_STATE_DEAD 1
 
-#define lua_fail(L, errstr, errno) { \
-    lua_pushnil(L); \
-    lua_pushstring(L, errstr); \
-    lua_pushinteger(L, errno); \
-    return 3; \
-}
-
-#define lua_errno(L) { \
-    lua_fail(L, strerror(errno), errno); \
-}
-
-#define lua_newmt(L, name, __index, __gc) { \
-    luaL_newmetatable(L, name); \
-    \
-    luaL_newlib(L, __index); \
-    lua_setfield(L, -2, "__index"); \
-    \
-    lua_pushcfunction(L, __gc); \
-    lua_setfield(L, -2, "__gc"); \
-    \
+#define lua_thread_require(L, module_name) { \
+    lua_pushcfunction(L, lua_thread_pcall_errmsg_handler); \
+    lua_getglobal(L, "require"); \
+    lua_pushstring(L, module_name); \
+    if (lua_pcall(L, 1, 1, -3) != LUA_OK) { \
+        lua_thread_atpanic(L); \
+        lua_thread_on_end(thread); \
+    } \
+    lua_setglobal(L, module_name); \
     lua_pop(L, 1); \
 }
 
-#define lua_trace_stack(L) { \
-    int n = lua_gettop(L); \
-    printf("stack size: %d\n", n); \
-    int t; \
-    for (int i=1; i<=n; ++i) { \
-        t = lua_type(L,i); \
-        printf("\t%d: %s: ", i, lua_typename(L,t)); \
-        if (t==LUA_TNIL||t==LUA_TNONE) printf("nil"); \
-        else if (t==LUA_TNUMBER) printf(LUA_NUMBER_FMT, lua_tonumber(L,i)); \
-        else if (t==LUA_TSTRING) printf("%s", lua_tostring(L,i)); \
-        else if (t==LUA_TBOOLEAN) printf(lua_toboolean(L,i) ? "true" : "false"); \
-        else printf("%p", lua_topointer(L,i)); \
-        printf("\n"); \
+#define lua_thread_dofile(L, file_path) { \
+    lua_pushcfunction(L, lua_thread_pcall_errmsg_handler); \
+    if (luaL_loadfile(L, file_path) != LUA_OK) { \
+        lua_thread_atpanic(L); \
+        lua_thread_on_end(thread); \
     } \
+    if (lua_pcall(L, 0, 0, -2) != LUA_OK) { \
+        lua_thread_atpanic(L); \
+        lua_thread_on_end(thread); \
+    } \
+    lua_pop(L, 1); \
+}
+
+#define lua_thread_on_end(thread) { \
+    __sync_bool_compare_and_swap(&thread->state, LUA_THREAD_STATE_RUNNING, LUA_THREAD_STATE_DEAD); \
+    pthread_exit(NULL); \
 }
 
 typedef struct lua_ud_thread {
@@ -71,8 +61,7 @@ static uint64_t inc_id(void);
 static void *lua_thread_create_worker(void *arg);
 static void lua_thread_xcopy(lua_State *fromL, int fromIndex, lua_State *toL);
 static int lua_thread_atpanic(lua_State *L);
-static int lua_custom_traceback(lua_State *L);
-static int lua_custom_pcall(lua_State *L, int narg, int nres);
+static int lua_thread_pcall_errmsg_handler(lua_State *L);
 
 static const luaL_Reg __index[] = {
     { "start", lua_thread_start },

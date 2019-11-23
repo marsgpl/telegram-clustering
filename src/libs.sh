@@ -1,11 +1,18 @@
-#!/bin/sh
+#!/bin/bash
 
-. helpers.sh
+. shared/const.sh
+. shared/helpers.sh
 
-cd libs
+task=$1
 
-for dir in $(find . -mindepth 0 -maxdepth 0 -type d); do
-    cd "$dir"
-    make && make install || exit 1
-    cd ..
+mkdir -p $LIBS_DST_DIR || fail
+
+cd $LIBS_SRC_DIR || fail
+
+for dir in $(find . -mindepth 1 -maxdepth 1 -type d); do
+    echo -e "\e[0;35mlib:\e[0m $(basename $dir)"
+
+    cd $dir || fail
+    make $task || fail
+    cd .. || fail
 done

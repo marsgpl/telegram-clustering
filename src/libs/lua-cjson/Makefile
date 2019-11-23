@@ -10,8 +10,9 @@
 ## MULTIPLE_THREADS:        Must be set when Lua CJSON may be used in a
 ##                          multi-threaded application. Requries _pthreads_.
 
-LUA_ROOT_DIR = ../../../lua-5.3.5
-INSTALL_DIR = ../../../../libs
+ifndef TGNEWS
+$(error "use libs.sh to build")
+endif
 
 ##### Build defaults #####
 LUA_VERSION =       5.3
@@ -19,7 +20,7 @@ TARGET =            cjson.so
 PREFIX =            /usr/local
 #CFLAGS =            -g -Wall -pedantic -fno-inline
 CFLAGS =            -O3 -Wall -pedantic -DNDEBUG
-CJSON_CFLAGS =      -fpic -m64 -I$(LUA_ROOT_DIR)/src
+CJSON_CFLAGS =      -fPIC -m64 -I$(LUA_SRC_DIR)
 CJSON_LDFLAGS =     -shared
 LUA_INCLUDE_DIR =   $(PREFIX)/include
 LUA_CMODULE_DIR =   $(PREFIX)/lib/lua/$(LUA_VERSION)
@@ -95,7 +96,7 @@ OBJS =              lua_cjson.o strbuf.o $(FPCONV_OBJS)
 .adoc.html:
 	$(ASCIIDOC) -n -a toc $<
 
-all: $(TARGET)
+all: $(TARGET) install
 
 doc: manual.html performance.html
 
@@ -103,8 +104,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(LDFLAGS) $(CJSON_LDFLAGS) -o $@ $(OBJS)
 
 install: $(TARGET)
-	mkdir -p $(INSTALL_DIR)
-	cp $(TARGET) $(INSTALL_DIR)
+	cp $(TARGET) $(LIBS_DST_DIR)
 	# mkdir -p $(DESTDIR)/$(LUA_CMODULE_DIR)
 	# cp $(TARGET) $(DESTDIR)/$(LUA_CMODULE_DIR)
 	# chmod $(EXECPERM) $(DESTDIR)/$(LUA_CMODULE_DIR)/$(TARGET)

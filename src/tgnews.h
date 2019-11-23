@@ -1,16 +1,13 @@
-#include <stdio.h>
-#include <string.h>
 #include <signal.h>
 
-#include "lauxlib.h"
-#include "lualib.h"
+#include "shared/tgnews_lua.h"
 
 #define ENTRY_POINT_FILE "logic/tgnews.luac"
 
-#define PACKAGE_PATH "libs/?.luac;./?.luac"
+#define PACKAGE_PATH "libs/?.luac;logic/?.luac"
 #define PACKAGE_CPATH "libs/?.so"
 
-#define USAGE "\nUsage:  tgnews TASK SRCDIR\n" \
+#define USAGE "Usage:  tgnews TASK SRCDIR\n" \
 "\n" \
 "Telegram clustering challenge participant.\n" \
 "Executes TASK on files from SRCDIR directory.\n" \
@@ -24,6 +21,7 @@
 "  top          Sort threads by their relative importance\n"
 
 #define fail(tpl, ...) { \
+    fprintf(stderr, "Error: "); \
     fprintf(stderr, tpl, ##__VA_ARGS__); \
     fprintf(stderr, "\n"); \
     fflush(stderr); \
@@ -31,20 +29,32 @@
 }
 
 #define fail_lua(L) { \
-    fail("Error: %s", lua_tostring(L, -1)); \
+    fprintf(stderr, "Lua error: %s\n", lua_tostring(L, -1)); \
+    fflush(stderr); \
     lua_pop(L, 1); \
+    tgnews_lua_trace_stack(L); \
     lua_close(L); \
     return 1; \
 }
 
 #define tgnews_lua_require(L, module_name) { \
+    lua_pushcfunction(L, tgnews_lua_pcall_errmsg_handler); \
     lua_getglobal(L, "require"); \
     lua_pushstring(L, module_name); \
-    lua_call(L, 1, 1); \
+    if (lua_pcall(L, 1, 1, -3) != LUA_OK) fail_lua(L); \
     lua_setglobal(L, module_name); \
+    lua_pop(L, 1); \
+}
+
+#define tgnews_lua_dofile(L, file_path) { \
+    lua_pushcfunction(L, tgnews_lua_pcall_errmsg_handler); \
+    if (luaL_loadfile(L, file_path) != LUA_OK) fail_lua(L); \
+    if (lua_pcall(L, 0, 0, -2) != LUA_OK) fail_lua(L); \
+    lua_pop(L, 1); \
 }
 
 int main(int argc, const char **argv);
-static int tgnews_lua_call_handler(lua_State *L);
+
 static void tgnews_on_sigint(int sig);
-static void tgnews_lua_stop(lua_State *L, lua_Debug *ar);
+static void tgnews_lua_stop_hook(lua_State *L, lua_Debug *ar);
+static int tgnews_lua_pcall_errmsg_handler(lua_State *L);
