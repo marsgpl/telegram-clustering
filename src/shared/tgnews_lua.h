@@ -5,7 +5,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-#define tgnews_lua_trace_stack(L) { \
+#define lua_trace_stack(L) { \
     int n = lua_gettop(L); \
     fprintf(stderr, "stack size: %d\n", n); \
     int t; \
@@ -21,18 +21,18 @@
     } \
 }
 
-#define tgnews_lua_fail(L, errstr, errno, ...) { \
+#define lua_fail(L, errstr, errno, ...) { \
     lua_pushnil(L); \
     lua_pushfstring(L, errstr, ##__VA_ARGS__); \
     lua_pushinteger(L, errno); \
     return 3; \
 }
 
-#define tgnews_lua_errno(L) { \
-    tgnews_lua_fail(L, strerror(errno), errno); \
+#define lua_errno(L) { \
+    lua_fail(L, strerror(errno), errno); \
 }
 
-#define tgnews_lua_newmt(L, name, __index, __gc) { \
+#define lua_newmt(L, name, __index, __gc) { \
     luaL_newmetatable(L, name); \
     luaL_newlib(L, __index); \
     lua_setfield(L, -2, "__index"); \

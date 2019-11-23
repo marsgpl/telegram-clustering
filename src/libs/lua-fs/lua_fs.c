@@ -11,7 +11,7 @@ static int lua_fs_stat(lua_State *L) {
     struct stat statbuf;
 
     if (stat(path, &statbuf) != 0) {
-        tgnews_lua_fail(L, "stat failed for path '%s': %s", errno, path, strerror(errno));
+        lua_fail(L, "stat failed for path '%s': %s", errno, path, strerror(errno));
     }
 
     lua_newtable(L);
@@ -37,7 +37,7 @@ static int lua_fs_traverse(lua_State *L) {
     int should_stop = 0;
 
     if (!lua_isfunction(L, 2)) {
-        tgnews_lua_fail(L, "arg #2 must be function(file_name, file_path)", -1);
+        lua_fail(L, "arg #2 must be function(file_name, file_path)", -1);
     }
 
     return lua_fs_traverse_worker(L, path, &should_stop);
@@ -52,7 +52,7 @@ static int lua_fs_traverse_worker(lua_State *L, const char *base_path, int *shou
     dir = opendir(base_path);
 
     if (dir == NULL) {
-        tgnews_lua_fail(L, "opendir failed for path '%s': %s", errno, base_path, strerror(errno));
+        lua_fail(L, "opendir failed for path '%s': %s", errno, base_path, strerror(errno));
     }
 
     while((entry = readdir(dir))) {
@@ -62,7 +62,7 @@ static int lua_fs_traverse_worker(lua_State *L, const char *base_path, int *shou
         full_path_len = strlen(base_path) + 1 + strlen(entry->d_name);
 
         if (full_path_len > PATH_MAX - 1) {
-            tgnews_lua_fail(L, "path '%s%c%s' is too long: %I > %I", 0,
+            lua_fail(L, "path '%s%c%s' is too long: %I > %I", 0,
                 base_path, PATH_SEPARATOR, entry->d_name,
                 (lua_Integer)full_path_len,
                 (lua_Integer)(PATH_MAX - 1));

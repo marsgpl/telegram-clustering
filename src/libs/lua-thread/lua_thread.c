@@ -1,7 +1,7 @@
 #include "lua_thread.h"
 
 LUAMOD_API int luaopen_thread(lua_State *L) {
-    tgnews_lua_newmt(L, LUA_MT_THREAD, __thread_index, lua_thread_gc);
+    lua_newmt(L, LUA_MT_THREAD, __thread_index, lua_thread_gc);
     luaL_newlib(L, __index);
     return 1;
 }
@@ -17,13 +17,13 @@ static int lua_thread_start(lua_State *L) {
     lua_ud_thread *thread = (lua_ud_thread *)lua_newuserdata(L, sizeof(lua_ud_thread));
 
     if (thread == NULL) {
-        tgnews_lua_fail(L, "lua_ud_thread alloc failed", 0);
+        lua_fail(L, "lua_ud_thread alloc failed", 0);
     }
 
     thread->L = luaL_newstate();
 
     if (thread->L == NULL) {
-        tgnews_lua_fail(L, "luaL_newstate alloc failed", 0);
+        lua_fail(L, "luaL_newstate alloc failed", 0);
     }
 
     thread->id = inc_id();
@@ -84,7 +84,7 @@ static int lua_thread_start(lua_State *L) {
 
     if (r != 0) {
         lua_close(thread->L);
-        tgnews_lua_fail(L, "thread creation failed", r);
+        lua_fail(L, "thread creation failed", r);
     }
 
     luaL_setmetatable(L, LUA_MT_THREAD);
@@ -170,7 +170,7 @@ static int lua_thread_atpanic(lua_State *L) {
     lua_getfield(L, LUA_REGISTRYINDEX, LUA_THREAD_ID_METAFIELD);
     fprintf(stderr, "lua thread #%zu error: %s\n", (size_t)lua_tonumber(L, -1), lua_tostring(L, -2));
     lua_pop(L, 2);
-    tgnews_lua_trace_stack(L);
+    lua_trace_stack(L);
     return 0;
 }
 

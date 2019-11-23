@@ -32,7 +32,7 @@
     fprintf(stderr, "Lua error: %s\n", lua_tostring(L, -1)); \
     fflush(stderr); \
     lua_pop(L, 1); \
-    tgnews_lua_trace_stack(L); \
+    lua_trace_stack(L); \
     lua_close(L); \
     return 1; \
 }
