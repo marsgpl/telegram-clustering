@@ -11,6 +11,7 @@ local c = class:Cluster {
     threads = {
         reader = {
             read_files = false,
+            files_limit = 1000,
             file = "logic/threads/reader.luac",
             threads = {},
         },
@@ -19,7 +20,7 @@ local c = class:Cluster {
             threads = {},
         },
         workers = {
-            amount = 8, -- as cpus cores
+            amount = 6, -- as cpus cores
             file = "logic/threads/worker.luac",
             threads = {},
         },
@@ -35,20 +36,34 @@ function c:init()
     self:init_reporter()
 end
 
+function c:get_task_path_for_worker(for_require)
+    if for_require then
+        return "workers/" .. self.task
+    else
+        return "logic/workers/" .. self.task .. ".luac"
+    end
+end
+
+function c:get_task_path_for_reporter(for_require)
+    if for_require then
+        return "reporters/" .. self.task
+    else
+        return "logic/reporters/" .. self.task .. ".luac"
+    end
+end
+
 function c:check_task()
-    self.task = {
-        base_path = "logic/tasks",
-        name = self.task,
-        ext = "luac",
-    }
+    local path = self:get_task_path_for_worker()
+    local r, es = fs.stat(path)
 
-    self.task.path = self.task.base_path .. "/" .. self.task.name .. "." .. self.task.ext
-
-    local r, es = fs.stat(self.task.path)
+    if r then
+        path = self:get_task_path_for_reporter()
+        r, es = fs.stat(path)
+    end
 
     if not r or r.type ~= "file" then
         error("unknown task: " .. self.task .. "\n"
-            .. (es or ("path is directory: " .. self.task.path)))
+            .. (es or ("path is directory: " .. path)))
     end
 end
 
@@ -64,51 +79,56 @@ end
 function c:init_reader()
     local reader = self.threads.reader
 
-    reader.args = {
+    local args = {
         routes = self.routes,
         packet_sep = self.packet_sep,
         src_dir = self.src_dir,
         read_files = reader.read_files,
+        files_limit = reader.files_limit,
         workers = {
             amount = self.threads.workers.amount,
         },
     }
 
-    local t, tid = assert(thread.start(reader.file, reader.args))
+    local t, tid = assert(thread.start(reader.file, args))
     reader.threads[tid] = t
 end
 
 function c:init_reporter()
     local reporter = self.threads.reporter
 
-    reporter.args = {
+    local args = {
         routes = self.routes,
         packet_sep = self.packet_sep,
+        task = {
+            name = self.task,
+            path = self:get_task_path_for_reporter(true),
+        },
         workers = {
             amount = self.threads.workers.amount,
         },
     }
 
-    local t, tid = assert(thread.start(reporter.file, reporter.args))
+    local t, tid = assert(thread.start(reporter.file, args))
     reporter.threads[tid] = t
 end
 
 function c:init_workers()
     local workers = self.threads.workers
 
-    workers.args = {
+    local args = {
         routes = self.routes,
         packet_sep = self.packet_sep,
         task = {
-            name = self.task.name,
-            path = self.task.path,
+            name = self.task,
+            path = self:get_task_path_for_worker(true),
         },
-        tidx = 0, -- thread index
+        index = 0, -- thread index
     }
 
     for i = 1, workers.amount do
-        workers.args.tidx = i
-        local t, tid = assert(thread.start(workers.file, workers.args))
+        args.index = i
+        local t, tid = assert(thread.start(workers.file, args))
         workers.threads[tid] = t
     end
 end

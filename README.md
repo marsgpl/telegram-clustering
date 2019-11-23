@@ -12,6 +12,7 @@ Telegram clustering challenge participant
         apt install -y build-essential libreadline-dev
         alias ll='ls -Albh --color=auto --group-directories-first'
         alias re='cd /tgnews/src && make && cd /tgnews'
+        alias rere='cd /tgnews/src && make clean all && cd /tgnews'
         alias tgnews='cd /tgnews/src && make -s logic && cd /tgnews && time ./tgnews'
         re
         tgnews languages input
@@ -29,6 +30,7 @@ Telegram clustering challenge participant
     find . -name \*.luac -type f -delete
     find . -name \*.o -type f -delete
     find . -name \*.so -type f -delete
+    find . -name tgnews-\*.sock -type f -delete
 
 ## todo
 

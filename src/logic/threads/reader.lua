@@ -27,25 +27,41 @@ local t_r, t_es = fs.traverse(args.src_dir, function(file_name, file_path)
     }
 
     if args.read_files then
-        file.content = read_file(file.path)
+        file.content = assert(read_file(file.path))
     end
 
     files_found = files_found + 1
 
-    workers[next_free_worker]:send(json.encode(file) .. args.packet_sep)
-    next_free_worker = next_free_worker + 1
-    if next_free_worker > #workers then next_free_worker = 1 end
+    assert(workers[next_free_worker]:send(json.encode({
+        file = file,
+    }) .. args.packet_sep))
 
-    return files_found >= 1000
+    next_free_worker = next_free_worker + 1
+
+    if next_free_worker > #workers then
+        next_free_worker = 1
+    end
+
+    if args.files_limit and files_found >= args.files_limit then
+        return true -- finish
+    end
 end)
 
 for i = 1, args.workers.amount do
-    workers[i]:send(json.encode({
-        no_more_files = true,
-    }) .. args.packet_sep)
+    assert(workers[i]:send(json.encode({
+        result = {
+            files_found = files_found,
+        }
+    }) .. args.packet_sep))
 end
 
-wait_until_connect_to_unix(reporter, args.routes.reporter_for_reader)
+assert(wait_until_connect_to_unix(reporter, args.routes.reporter_for_reader))
+
+assert(reporter:send(json.encode({
+    result = {
+        files_found = files_found,
+    }
+}) .. args.packet_sep))
 
 if not t_r then
     error("traverse failed: " .. t_es)

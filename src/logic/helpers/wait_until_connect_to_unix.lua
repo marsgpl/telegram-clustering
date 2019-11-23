@@ -14,9 +14,11 @@ return function(sock, addr)
             or en == net.e.EALREADY
             or en == net.e.ECONNREFUSED
         then
-            etc.sleep(0.0001)
+            etc.sleep(0.001)
         else
-            error("wait_until_connect_to error: " .. es)
+            return nil, "wait_until_connect_to error: " .. es
         end
     until connected
+
+    return true
 end

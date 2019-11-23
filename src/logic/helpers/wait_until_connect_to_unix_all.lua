@@ -27,9 +27,11 @@ return function(socks, addr_tpl)
                 then
                     etc.sleep(0.0001)
                 else
-                    error("wait_until_connect_to error: " .. es)
+                    return nil, "wait_until_connect_to error: " .. es
                 end
             end
         end
     until unconnected == 0
+
+    return true
 end
