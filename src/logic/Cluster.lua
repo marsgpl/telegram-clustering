@@ -2,27 +2,27 @@ local fs = require "fs"
 local thread = require "thread"
 
 local c = class:Cluster {
+    packet_sep = "\1",
+    routes = {
+        reader = "tgnews-reader.sock",
+        reporter_for_workers = "tgnews-reporter-w.sock",
+        reporter_for_reader = "tgnews-reporter-r.sock",
+    },
     threads = {
-        readers = {
-            amount = 1,
+        reader = {
+            read_files = false,
             file = "logic/threads/reader.luac",
-            args = {
-                read_files = false,
-            },
+            threads = {},
+        },
+        reporter = {
+            file = "logic/threads/reporter.luac",
             threads = {},
         },
         workers = {
             amount = 8, -- as cpus cores
             file = "logic/threads/worker.luac",
-            args = {},
             threads = {},
         },
-        results = {
-            amount = 1,
-            file = "logic/threads/result.luac",
-            args = {},
-            threads = {},
-        }
     },
 }
 
@@ -30,9 +30,9 @@ function c:init()
     self:check_task()
     self:check_src_dir()
 
-    self:init_readers()
+    self:init_reader()
     self:init_workers()
-    self:init_results()
+    self:init_reporter()
 end
 
 function c:check_task()
@@ -61,41 +61,55 @@ function c:check_src_dir()
     end
 end
 
-function c:init_readers()
-    local readers = self.threads.readers
+function c:init_reader()
+    local reader = self.threads.reader
 
-    readers.args.src_dir = self.src_dir
+    reader.args = {
+        routes = self.routes,
+        packet_sep = self.packet_sep,
+        src_dir = self.src_dir,
+        read_files = reader.read_files,
+        workers = {
+            amount = self.threads.workers.amount,
+        },
+    }
 
-    for _ = 1, readers.amount do
-        local t, tid = assert(thread.start(readers.file, readers.args))
-        readers.threads[tid] = t
-    end
+    local t, tid = assert(thread.start(reader.file, reader.args))
+    reader.threads[tid] = t
+end
+
+function c:init_reporter()
+    local reporter = self.threads.reporter
+
+    reporter.args = {
+        routes = self.routes,
+        packet_sep = self.packet_sep,
+        workers = {
+            amount = self.threads.workers.amount,
+        },
+    }
+
+    local t, tid = assert(thread.start(reporter.file, reporter.args))
+    reporter.threads[tid] = t
 end
 
 function c:init_workers()
     local workers = self.threads.workers
 
-    workers.args.task = {
-        name = self.task.name,
-        path = self.task.path,
+    workers.args = {
+        routes = self.routes,
+        packet_sep = self.packet_sep,
+        task = {
+            name = self.task.name,
+            path = self.task.path,
+        },
+        tidx = 0, -- thread index
     }
 
-    for _ = 1, workers.amount do
+    for i = 1, workers.amount do
+        workers.args.tidx = i
         local t, tid = assert(thread.start(workers.file, workers.args))
         workers.threads[tid] = t
-    end
-end
-
-function c:init_results()
-    local results = self.threads.results
-
-    results.args.readers = {
-        amount = self.threads.readers.amount,
-    }
-
-    for _ = 1, results.amount do
-        local t, tid = assert(thread.start(results.file, results.args))
-        results.threads[tid] = t
     end
 end
 

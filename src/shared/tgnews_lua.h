@@ -40,3 +40,8 @@
     lua_setfield(L, -2, "__gc"); \
     lua_pop(L, 1); \
 }
+
+#define lua_add_int_const(L, name) { \
+    lua_pushinteger(L, name); \
+    lua_setfield(L, -2, #name); \
+}

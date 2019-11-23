@@ -16,7 +16,7 @@ static int lua_net_ip4_tcp_socket(lua_State *L) {
     }
 
     luaL_setmetatable(L, LUA_MT_NET_IP4_TCP_SOCKET);
-printf("+1\n");
+
     return 1;
 }
 
@@ -39,7 +39,7 @@ static int lua_net_ip4_tcp_socket_id(lua_State *L) {
 static int lua_net_ip4_tcp_socket_close(lua_State *L) {
     lua_ud_socket *sock = luaL_checkudata(L, 1, LUA_MT_NET_IP4_TCP_SOCKET);
 
-    if (sock->fd != -1) {printf("-1\n");
+    if (sock->fd != -1) {
         close(sock->fd);
         sock->fd = -1;
     }
@@ -168,7 +168,7 @@ static int lua_net_ip4_tcp_socket_accept(lua_State *L) {
     client->id = inc_id();
 
     luaL_setmetatable(L, LUA_MT_NET_IP4_TCP_SOCKET);
-printf("+1\n");
+
     return 1;
 }
 

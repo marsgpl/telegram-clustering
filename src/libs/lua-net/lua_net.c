@@ -18,6 +18,14 @@ LUAMOD_API int luaopen_net(lua_State *L) {
     luaL_newlib(L, __unix_index);
     lua_setfield(L, -2, "unix");
 
+    lua_newtable(L);
+        #include "lua_net_flags.c"
+    lua_setfield(L, -2, "f");
+
+    lua_newtable(L);
+        #include "lua_net_errors.c"
+    lua_setfield(L, -2, "e");
+
     return 1;
 }
 

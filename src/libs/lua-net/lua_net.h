@@ -1,16 +1,13 @@
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
-#include <sys/un.h>
-#include <sys/stat.h>
 #include <sys/types.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+#include <sys/stat.h>
+#include <sys/un.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <stdlib.h>
-#include <signal.h>
+#include <fcntl.h>
 #include <math.h>
-#include <netdb.h>
 
 #include "tgnews_lua.h"
 
@@ -60,7 +57,7 @@ static int lua_net_unix_socket(lua_State *L);
 static int lua_net_unix_socket_fd(lua_State *L);
 static int lua_net_unix_socket_id(lua_State *L);
 static int lua_net_unix_socket_path(lua_State *L);
-static int lua_net_unix_socket_close(lua_State *L);
+static int lua_net_unix_socket_close(lua_State *L); // == __gc
 static int lua_net_unix_socket_bind(lua_State *L);
 static int lua_net_unix_socket_connect(lua_State *L);
 static int lua_net_unix_socket_listen(lua_State *L);

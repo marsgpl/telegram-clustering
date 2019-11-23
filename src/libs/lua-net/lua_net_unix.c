@@ -17,7 +17,7 @@ static int lua_net_unix_socket(lua_State *L) {
     }
 
     luaL_setmetatable(L, LUA_MT_NET_UNIX_SOCKET);
-    printf("+1\n");
+
     return 1;
 }
 
@@ -48,7 +48,7 @@ static int lua_net_unix_socket_path(lua_State *L) {
 static int lua_net_unix_socket_close(lua_State *L) {
     lua_ud_unix_socket *sock = luaL_checkudata(L, 1, LUA_MT_NET_UNIX_SOCKET);
 
-    if (sock->fd != -1) {printf("-1\n");
+    if (sock->fd != -1) {
         close(sock->fd);
         sock->fd = -1;
     }
@@ -208,7 +208,7 @@ static int lua_net_unix_socket_accept(lua_State *L) {
     client->addr = NULL;
 
     luaL_setmetatable(L, LUA_MT_NET_UNIX_SOCKET);
-    printf("+1\n");
+
     return 1;
 }
 
