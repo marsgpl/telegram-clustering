@@ -1,9 +1,32 @@
+local UnixSocketServer = require "UnixSocketServer"
 
+local args = thread.args()
+local task = require(args.task.path)
 
+local readers = UnixSocketServer:new {
+    packet_sep = args.packet_sep,
+    path = args.routes.reporter_for_readers,
+}
 
+local workers = UnixSocketServer:new {
+    packet_sep = args.packet_sep,
+    path = args.routes.reporter_for_workers,
+}
 
+readers:create()
+readers:block(true)
+readers:listen()
+readers:accept(args.threads.readers.amount)
 
+workers:create()
+workers:block(true)
+workers:listen()
+workers:accept(args.threads.workers.amount)
 
+local etc = require "etc"
+etc.sleep(213)
+
+print "reporter DONE"
 
 
 

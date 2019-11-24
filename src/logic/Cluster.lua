@@ -2,28 +2,32 @@ local fs = require "fs"
 local thread = require "thread"
 
 local c = class:Cluster {
-    packet_sep = "\1",
+    packet_sep = "\n",
     routes = {
-        reader = "tgnews-reader.sock",
-        reporter_for_workers = "tgnews-reporter-w.sock",
-        reporter_for_reader = "tgnews-reporter-r.sock",
+        -- reader listens for workers
+        reader_for_workers = "tgnews-rea-wor-$index.sock",
+        -- reporter listens for readers
+        reporter_for_readers = "tgnews-rep-rea.sock",
+        -- reporter listens for workers
+        reporter_for_workers = "tgnews-rep-wor.sock",
     },
     threads = {
-        reader = {
-            read_files = false,
-            files_limit = 5,
+        readers = {
+            amount = 1, -- as many as input dirs amount (source_dir)
             file = "logic/threads/reader.luac",
-            threads = {},
+            read_files = false, -- true if workers are on different machine
+            files_limit = 5, -- stop after reading N files
+        },
+        workers = {
+            amount = 6, -- as many as cpus cores (or less)
+            file = "logic/threads/worker.luac",
         },
         reporter = {
             file = "logic/threads/reporter.luac",
-            threads = {},
         },
-        workers = {
-            amount = 6, -- as cpus cores
-            file = "logic/threads/worker.luac",
-            threads = {},
-        },
+    },
+    resources = {
+        threads = {},
     },
     -- task
     -- src_dir
@@ -33,7 +37,7 @@ function c:init()
     self:check_task()
     self:check_src_dir()
 
-    self:init_reader()
+    self:init_readers()
     self:init_workers()
     self:init_reporter()
 end
@@ -78,61 +82,62 @@ function c:check_src_dir()
     end
 end
 
-function c:init_reader()
-    local reader = self.threads.reader
+function c:init_readers()
+    local conf = self.threads.readers
 
     local args = {
+        index = 0, -- thread index, changed while iter
         routes = self.routes,
+        threads = self.threads,
         packet_sep = self.packet_sep,
+        read_files = conf.read_files,
+        files_limit = conf.files_limit,
         src_dir = self.src_dir,
-        read_files = reader.read_files,
-        files_limit = reader.files_limit,
-        workers = {
-            amount = self.threads.workers.amount,
-        },
     }
 
-    local t, tid = assert(thread.start(reader.file, args))
-    reader.threads[tid] = t
-end
-
-function c:init_reporter()
-    local reporter = self.threads.reporter
-
-    local args = {
-        routes = self.routes,
-        packet_sep = self.packet_sep,
-        task = {
-            name = self.task,
-            path = self:get_task_path_for_reporter(true),
-        },
-        workers = {
-            amount = self.threads.workers.amount,
-        },
-    }
-
-    local t, tid = assert(thread.start(reporter.file, args))
-    reporter.threads[tid] = t
+    for index = 1, conf.amount do
+        args.index = index
+        local t, tid = assert(thread.start(conf.file, args))
+        self.resources.threads[tid] = t
+    end
 end
 
 function c:init_workers()
-    local workers = self.threads.workers
+    local conf = self.threads.workers
 
     local args = {
+        index = 0, -- thread index, changed while iter
         routes = self.routes,
+        threads = self.threads,
         packet_sep = self.packet_sep,
         task = {
             name = self.task,
             path = self:get_task_path_for_worker(true),
         },
-        index = 0, -- thread index
     }
 
-    for i = 1, workers.amount do
-        args.index = i
-        local t, tid = assert(thread.start(workers.file, args))
-        workers.threads[tid] = t
+    for index = 1, conf.amount do
+        args.index = index
+        local t, tid = assert(thread.start(conf.file, args))
+        self.resources.threads[tid] = t
     end
+end
+
+function c:init_reporter()
+    local conf = self.threads.reporter
+
+    local args = {
+        routes = self.routes,
+        threads = self.threads,
+        packet_sep = self.packet_sep,
+        task = {
+            name = self.task,
+            path = self:get_task_path_for_reporter(true),
+        },
+    }
+
+    local t, tid = assert(thread.start(conf.file, args))
+    self.resources.threads[tid] = t
 end
 
 return c

@@ -30,6 +30,55 @@ LUAMOD_API int luaopen_net(lua_State *L) {
     return 1;
 }
 
+// arg#1 - buffer
+// arg#2 - separator
+// arg#3 - on_data
+// res#1 = buffer after subtracting packets
+// res#2 = on_data_result (bool)
+static int lua_net_splitby(lua_State *L) {
+    int on_data_result = 0;
+    size_t buf_len, sep_len;
+
+    const char *buf = lua_tolstring(L, 1, &buf_len);
+    const char *separator = lua_tolstring(L, 2, &sep_len);
+
+    if (sep_len == 0) lua_fail(L, "arg #2 must be separator with length > 0", -1);
+    if (!lua_isfunction(L, 3)) lua_fail(L, "arg #3 must be on_data(packet)", -1);
+
+    char sep = separator[0];
+    char *sep_pos;
+    int sep_index; // sep pos index in buf starting from 0
+    int buf_len_changed = 0;
+
+    while (buf_len > 0) {
+        sep_pos = strchr(buf, sep);
+
+        if (sep_pos == NULL) { // sep not found
+            break;
+        } else {
+            sep_index = sep_pos - buf;
+            lua_pushvalue(L, -1); // on_data
+            lua_pushlstring(L, buf, sep_index); // packet
+            lua_call(L, 1, 1); // 1 arg (chunk), 1 result (on_data_result)
+            on_data_result = lua_toboolean(L, -1);
+            lua_pop(L, 1);
+            buf = sep_pos + 1;
+            buf_len -= sep_index + 1;
+            buf_len_changed = 1;
+        }
+    }
+
+    if (buf_len_changed) {
+        lua_pushlstring(L, buf, buf_len);
+    } else {
+        lua_settop(L, 1); // leave in stack only buffer
+    }
+
+    lua_pushboolean(L, on_data_result);
+
+    return 2;
+}
+
 static uint64_t inc_id(void) {
     static volatile uint64_t id = 0;
     return __sync_add_and_fetch(&id, 1);

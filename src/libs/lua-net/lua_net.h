@@ -61,6 +61,8 @@ typedef struct lua_ud_unix_socket {
 
 LUAMOD_API int luaopen_net(lua_State *L);
 
+static int lua_net_splitby(lua_State *L);
+
 static int lua_net_epoll(lua_State *L);
 static int lua_net_epoll_start(lua_State *L);
 static int lua_net_epoll_stop(lua_State *L);
@@ -97,6 +99,7 @@ long int oct2dec(long int octal);
 
 static const luaL_Reg __index[] = {
     { "epoll", lua_net_epoll },
+    { "splitby", lua_net_splitby },
     { NULL, NULL }
 };
 

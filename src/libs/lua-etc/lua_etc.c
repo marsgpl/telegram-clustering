@@ -57,25 +57,3 @@ static int lua_etc_microtime(lua_State *L) {
 
     return 1;
 }
-
-static int lua_etc_splitby(lua_State *L) {
-    size_t str_len;
-    const char *str = lua_tolstring(L, 1, &str_len);
-    const char *sep = lua_tostring(L, 2);
-
-    char *pos = strchr(str, sep[0]);
-
-    if (pos == NULL) {
-        lua_settop(L, 1);
-        lua_pushnil(L);
-        lua_insert(L, 1);
-        return 2;
-    }
-
-    int position = pos - str;
-
-    lua_pushlstring(L, str, position);
-    lua_pushlstring(L, pos + 1, str_len - position - 1);
-
-    return 2;
-}

@@ -1,78 +1,101 @@
+local fs = require "fs"
+local net = require "net"
+local json = require "cjson"
+local UnixSocketClient = require "UnixSocketClient"
 
+local args = thread.args()
+local task = require(args.task.path)
 
+args.index = math.tointeger(args.index)
 
+local readers = {}
 
+for index = 1, args.threads.readers.amount do
+    readers[index] = UnixSocketClient:new {
+        packet_sep = args.packet_sep,
+        path = args.routes.reader_for_workers:gsub("$index", index),
+    }
+end
 
+local reporter = UnixSocketClient:new {
+    packet_sep = args.packet_sep,
+    path = args.routes.reporter_for_workers,
+}
 
+for _, reader in ipairs(readers) do
+    reader:create()
+    reader:block(true)
+    reader:connect()
+end
 
+reporter:create()
+reporter:block(true)
+reporter:connect()
 
+local epoll = assert(net.epoll())
 
+local reader_by_fd = {}
+local readers_unfinished = #readers
 
+-- TODO: move json decoding in UnixSocketClient
+local reader_on_packet = function(packet)
+    packet = json.decode(packet)
 
+    if packet.result then
+        return true -- communication finished
+    elseif packet.file then
+        local content = packet.file.content or assert(fs.readfile(packet.file.path))
+        local result = task(content)
 
+        result.file = packet.file.name
 
+        reporter:send(result)
+    end
+end
 
+for _, reader in ipairs(readers) do
+    local fd = reader.sock:fd()
 
+    reader_by_fd[fd] = reader
 
+    reader:block(false)
 
+    assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
+end
 
+local timeout = 10000
 
--- local net = require "net"
--- local etc = require "etc"
--- local json = require "cjson"
--- local UnixSocketClient = require "UnixSocketClient"
--- local read_file = require "helpers/read_file"
--- local wait_until_connect_to_unix = require "helpers/wait_until_connect_to_unix"
+local onhup = function(fd)
+    reader_by_fd[fd].sock:close()
 
--- local args = thread.args()
--- local reader = assert(net.unix.socket(1))
--- local reporter = assert(net.unix.socket(1))
--- local task = require(args.task.path)
+    readers_unfinished = readers_unfinished - 1
 
--- args.index = math.tointeger(args.index) -- thread index
+    if readers_unfinished == 0 then
+        epoll:stop()
+    end
+end
 
--- assert(wait_until_connect_to_unix(reader, args.routes.reader))
--- assert(wait_until_connect_to_unix(reporter, args.routes.reporter_for_workers))
+local onread = function(fd)
+    local disconnected = reader_by_fd[fd]:recv(reader_on_packet)
 
--- local rbuf = ""
--- local all_files_found = false
+    if disconnected then
+        onhup(fd)
+    end
+end
 
--- while not all_files_found do
---     local chunk = assert(reader:recv())
+local onwrite = function(fd)
+end
 
---     if #chunk == 0 then
---         break -- socket closed
---     end
+local onerror = function(fd, es, en)
+    if fd then
+        onhup(fd)
+    else
+        error(es)
+    end
+end
 
---     rbuf = rbuf .. chunk
+local ontimeout = function()
+    epoll:stop() -- no files in 10 seconds, fallback stop
+end
 
---     while not all_files_found do
---         chunk, rbuf = etc.splitby(rbuf, args.packet_sep)
-
---         if not chunk then
---             break -- sep not found
---         end
-
---         if #chunk > 0 then
---             local data = json.decode(chunk)
-
---             if data.result then
---                 all_files_found = true
---             elseif data.file then
---                 local content = data.file.content or assert(read_file(data.file.path))
---                 local result = task(content)
-
---                 assert(reporter:send(json.encode({
---                     file = {
---                         name = data.file.name,
---                     },
---                     result = result,
---                 }) .. args.packet_sep))
---             end
---         end
-
---         if #rbuf == 0 then
---             break -- no more bytes after sep
---         end
---     end
--- end
+assert(epoll:start(timeout, onread, onwrite, ontimeout, onerror, onhup))
