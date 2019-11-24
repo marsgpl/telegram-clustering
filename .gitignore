@@ -4,9 +4,10 @@
 /tgnews
 /src/lua-5.3.5/src/lua
 /src/lua-5.3.5/src/luac
-/src/lua-5.3.5/src/liblua.a
 /src/tgnews
 *.o
 *.so
+*.so.1
+*.a
 *.luac
 .DS_Store
