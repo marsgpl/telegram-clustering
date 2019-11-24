@@ -28,6 +28,26 @@
 
 #define EPOLL_DEFAULT_QUEUE_SIZE 65536
 
+#define lua_epoll_pcall(L, argsn) { \
+    int r = lua_pcall(L, argsn, 0, 0); /* nresults=0, no results needed */ \
+    if (r != LUA_OK) { /* callback call error, index -1 ⇒ es */ \
+        lua_pushvalue(L, 6); /* arg #6 is onerror */ \
+        lua_insert(L, -2); \
+        lua_pushnil(L); /* nil */ \
+        lua_insert(L, -2); \
+        lua_pushnumber(L, -1); /* en */ \
+        lua_call(L, 3, 0); /* onerror(nil, es, en) */ \
+    } \
+}
+
+#define lua_pushsockerr(L, fd) { \
+    int optval; \
+    socklen_t optlen = sizeof(optval); \
+    getsockopt(fd, SOL_SOCKET, SO_ERROR, &optval, &optlen); \
+    lua_pushstring(L, strerror(optval)); \
+    lua_pushnumber(L, optval); \
+}
+
 typedef struct lua_ud_socket {
     int fd; // file descriptor
     uint64_t id; // unique id (unique across lua_State)
@@ -40,6 +60,12 @@ typedef struct lua_ud_unix_socket {
 } lua_ud_unix_socket;
 
 LUAMOD_API int luaopen_net(lua_State *L);
+
+static int lua_net_epoll(lua_State *L);
+static int lua_net_epoll_start(lua_State *L);
+static int lua_net_epoll_stop(lua_State *L);
+static int lua_net_epoll_watch(lua_State *L);
+static int lua_net_epoll_unwatch(lua_State *L);
 
 static int lua_net_ip4_tcp_socket(lua_State *L);
 static int lua_net_ip4_tcp_socket_fd(lua_State *L);
@@ -70,7 +96,16 @@ static uint64_t inc_id(void);
 long int oct2dec(long int octal);
 
 static const luaL_Reg __index[] = {
+    { "epoll", lua_net_epoll },
     { NULL, NULL }
+};
+
+static const luaL_Reg __epoll_index[] = {
+    { "start", lua_net_epoll_start },
+    { "stop", lua_net_epoll_stop },
+    { "watch", lua_net_epoll_watch },
+    { "unwatch", lua_net_epoll_unwatch },
+    { NULL, NULL}
 };
 
 static const luaL_Reg __ip4_index[] = {

@@ -7,6 +7,7 @@
 LUAMOD_API int luaopen_net(lua_State *L) {
     lua_newmt(L, LUA_MT_NET_IP4_TCP_SOCKET, __ip4_tcp_socket_index, lua_net_ip4_tcp_socket_close);
     lua_newmt(L, LUA_MT_NET_UNIX_SOCKET, __unix_socket_index, lua_net_unix_socket_close);
+    lua_newmt(L, LUA_MT_NET_EPOLL, __epoll_index, lua_net_epoll_stop);
 
     luaL_newlib(L, __index);
 

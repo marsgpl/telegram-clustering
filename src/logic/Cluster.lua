@@ -11,7 +11,7 @@ local c = class:Cluster {
     threads = {
         reader = {
             read_files = false,
-            files_limit = 1000,
+            files_limit = 5,
             file = "logic/threads/reader.luac",
             threads = {},
         },
