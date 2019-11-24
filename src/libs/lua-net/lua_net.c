@@ -34,9 +34,9 @@ LUAMOD_API int luaopen_net(lua_State *L) {
 // arg#2 - separator
 // arg#3 - on_data
 // res#1 = buffer after subtracting packets
-// res#2 = on_data_result (bool)
+// res#2 = disconnected (bool)
 static int lua_net_splitby(lua_State *L) {
-    int on_data_result = 0;
+    int disconnected = 0;
     size_t buf_len, sep_len;
 
     const char *buf = lua_tolstring(L, 1, &buf_len);
@@ -50,7 +50,7 @@ static int lua_net_splitby(lua_State *L) {
     int sep_index; // sep pos index in buf starting from 0
     int buf_len_changed = 0;
 
-    while (buf_len > 0) {
+    while (buf_len > 0 && !disconnected) {
         sep_pos = strchr(buf, sep);
 
         if (sep_pos == NULL) { // sep not found
@@ -59,8 +59,8 @@ static int lua_net_splitby(lua_State *L) {
             sep_index = sep_pos - buf;
             lua_pushvalue(L, -1); // on_data
             lua_pushlstring(L, buf, sep_index); // packet
-            lua_call(L, 1, 1); // 1 arg (chunk), 1 result (on_data_result)
-            on_data_result = lua_toboolean(L, -1);
+            lua_call(L, 1, 1); // 1 arg (chunk), 1 result (disconnected)
+            disconnected = lua_toboolean(L, -1);
             lua_pop(L, 1);
             buf = sep_pos + 1;
             buf_len -= sep_index + 1;
@@ -74,7 +74,7 @@ static int lua_net_splitby(lua_State *L) {
         lua_settop(L, 1); // leave in stack only buffer
     }
 
-    lua_pushboolean(L, on_data_result);
+    lua_pushboolean(L, disconnected);
 
     return 2;
 }

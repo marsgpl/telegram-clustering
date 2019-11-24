@@ -33,13 +33,21 @@ reporter:block(true)
 reporter:connect()
 
 local epoll = assert(net.epoll())
-
+local timeout = 10000
 local reader_by_fd = {}
 local readers_unfinished = #readers
+
+for _, reader in ipairs(readers) do
+    local fd = reader.sock:fd()
+    reader_by_fd[fd] = reader
+    reader:block(false)
+    assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
+end
 
 -- TODO: move json decoding in UnixSocketClient
 local reader_on_packet = function(packet)
     packet = json.decode(packet)
+    if not packet then return end
 
     if packet.result then
         return true -- communication finished
@@ -47,25 +55,14 @@ local reader_on_packet = function(packet)
         local content = packet.file.content or assert(fs.readfile(packet.file.path))
         local result = task(content)
 
-        result.file = packet.file.name
+        result.file_name = packet.file.name
 
         reporter:send(result)
     end
 end
 
-for _, reader in ipairs(readers) do
-    local fd = reader.sock:fd()
-
-    reader_by_fd[fd] = reader
-
-    reader:block(false)
-
-    assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
-end
-
-local timeout = 10000
-
 local onhup = function(fd)
+    assert(epoll:unwatch(fd))
     reader_by_fd[fd].sock:close()
 
     readers_unfinished = readers_unfinished - 1
@@ -83,10 +80,10 @@ local onread = function(fd)
     end
 end
 
-local onwrite = function(fd)
+local onwrite = function(_)
 end
 
-local onerror = function(fd, es, en)
+local onerror = function(fd, es, _)
     if fd then
         onhup(fd)
     else
@@ -95,7 +92,7 @@ local onerror = function(fd, es, en)
 end
 
 local ontimeout = function()
-    epoll:stop() -- no files in 10 seconds, fallback stop
+    epoll:stop()
 end
 
 assert(epoll:start(timeout, onread, onwrite, ontimeout, onerror, onhup))

@@ -1,7 +1,12 @@
+local net = require "net"
+local json = require "cjson"
 local UnixSocketServer = require "UnixSocketServer"
 
 local args = thread.args()
 local task = require(args.task.path)
+local final_report = {}
+local readers_files = 0
+local workers_files = 0
 
 local readers = UnixSocketServer:new {
     packet_sep = args.packet_sep,
@@ -23,145 +28,99 @@ workers:block(true)
 workers:listen()
 workers:accept(args.threads.workers.amount)
 
-local etc = require "etc"
-etc.sleep(213)
+local epoll = assert(net.epoll())
+local timeout = 10000
+local reader_by_fd = {}
+local worker_by_fd = {}
+local readers_unfinished = args.threads.readers.amount
 
-print "reporter DONE"
+for _, reader in ipairs(readers.clients) do
+    local fd = reader.sock:fd()
+    reader_by_fd[fd] = reader
+    assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
+end
 
+for _, worker in ipairs(workers.clients) do
+    local fd = worker.sock:fd()
+    worker_by_fd[fd] = worker
+    assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
+end
 
+local reader_on_packet = function(packet)
+    packet = json.decode(packet)
+    if not packet then return end
 
+    if packet.result then
+        readers_files = readers_files + packet.result.files_found
+        return true
+    end
+end
 
+local worker_on_packet = function(packet)
+    packet = json.decode(packet)
+    if not packet then return end
 
+    workers_files = workers_files + 1
 
+    if packet.accept then
+        final_report = task(packet)
+    end
 
+    if readers_files == workers_files then
+        return true
+    end
+end
 
+local onhup = function(fd)
+    assert(epoll:unwatch(fd))
 
+    local reader = reader_by_fd[fd]
+    local worker = worker_by_fd[fd]
 
+    if reader then
+        reader.sock:close()
+        readers_unfinished = readers_unfinished - 1
+    elseif worker then
+        worker.sock:close()
+    end
 
+    if readers_unfinished == 0 and readers_files == workers_files then
+        epoll:stop()
+    end
+end
 
+local onread = function(fd)
+    local disconnected
 
--- local net = require "net"
--- local etc = require "etc"
--- local json = require "cjson"
--- local UnixSocketClient = require "UnixSocketClient"
+    local reader = reader_by_fd[fd]
+    local worker = worker_by_fd[fd]
 
--- local args = thread.args()
--- local reporter_for_workers = assert(net.unix.socket(1))
--- local reporter_for_reader = assert(net.unix.socket(1))
--- local task = require(args.task.path)
--- local epoll = assert(net.epoll())
+    if reader then
+        disconnected = reader:recv(reader_on_packet)
+    elseif worker then
+        disconnected = worker:recv(worker_on_packet)
+    end
 
--- local workers = {}
--- local sock_by_fd = {}
--- local final_report = {}
--- local workers_files_amount = 0
--- local reader_files_amount = 0
+    if disconnected then
+        onhup(fd)
+    end
+end
 
--- etc.unlink(args.routes.reporter_for_workers)
--- assert(reporter_for_workers:bind(args.routes.reporter_for_workers))
--- assert(reporter_for_workers:listen())
+local onwrite = function(_)
+end
 
--- etc.unlink(args.routes.reporter_for_reader)
--- assert(reporter_for_reader:bind(args.routes.reporter_for_reader))
--- assert(reporter_for_reader:listen())
+local onerror = function(fd, es, _)
+    if fd then
+        onhup(fd)
+    else
+        error(es)
+    end
+end
 
--- for i = 1, args.workers.amount do
---     local sock = assert(reporter_for_workers:accept(1))
---     local fd = sock:fd()
+local ontimeout = function()
+    epoll:stop()
+end
 
---     local worker = {
---         sock = sock,
---         index = i,
---         rbuf = "",
---     }
+assert(epoll:start(timeout, onread, onwrite, ontimeout, onerror, onhup))
 
---     workers[fd] = worker
---     sock_by_fd[fd] = sock
-
---     assert(epoll:watch(fd, net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
--- end
-
--- local reader = assert(reporter_for_reader:accept(1))
--- local reader_rbuf = ""
--- sock_by_fd[reader:fd()] = reader
-
--- assert(epoll:watch(reader:fd(), net.f.EPOLLET | net.f.EPOLLRDHUP | net.f.EPOLLIN))
-
--- local timeout = 10000
-
--- local onhup = function(fd)
---     epoll:unwatch(fd)
---     sock_by_fd[fd]:close()
-
---     if not workers[fd] then -- reader died
---         epoll:stop()
---     end
--- end
-
--- local onread = function(fd)
---     local worker = workers[fd]
---     local sock = sock_by_fd[fd]
-
---     while true do
---         local chunk, es, en = sock:recv()
-
---         if chunk then
---             if #chunk == 0 then
---                 onhup(fd)
---                 break
---             else
---                 if worker then
---                     worker.rbuf = worker.rbuf .. chunk
---                 else -- reader
---                     reader_rbuf = reader_rbuf .. chunk
---                 end
-
---             end
---         elseif en == net.e.EWOULDBLOCK then
---             break -- no data atm
---         else -- error on socket
---             onhup(fd)
---             break
---         end
---     end
-
---     -- while true do
---     --     local chunk = assert(workers[1]:recv())
---     --     local file = { name="noob.html" }
---     --     local result = { lang="en", accept=true }
-
---     --     workers_files_amount = workers_files_amount + 1
-
---     --     if result.accept then
---     --         final_report = task(file, result)
---     --     end
-
---     --     if workers_files_amount >= reader_files_amount then
---     --         break
---     --     end
---     -- end
--- end
-
--- local onwrite = function(fd)
--- end
-
--- local onerror = function(fd, es, en)
---     if fd then -- socket error
---         onhup(fd)
---     else -- lua error
---         epoll:stop()
---     end
--- end
-
--- local ontimeout = function()
---     epoll:stop()
--- end
-
--- epoll:start(timeout, onread, onwrite, ontimeout, onerror, onhup)
-
--- print(json.encode(final_report))
-
--- for i in ipairs(final_report) do
---     local report = final_report[i]
---     print("lang: "..report.lang_code.."    articles: "..#report.articles)
--- end
+print(json.encode(final_report))
