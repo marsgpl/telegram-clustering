@@ -25,6 +25,8 @@ local c = class:Cluster {
             threads = {},
         },
     },
+    -- task
+    -- src_dir
 }
 
 function c:init()
