@@ -79,6 +79,7 @@ static int lua_etc_parse_url(lua_State *L) {
     char *pos, *posx;
     size_t len;
     int start = 0;
+    char port[6];
 
     lua_newtable(L);
 
@@ -165,8 +166,19 @@ static int lua_etc_parse_url(lua_State *L) {
         lua_pushlstring(L, url + start, len);
         lua_setfield(L, -2, "host");
 
-        lua_pushlstring(L, pos + 1, url_len - len - 1);
-        lua_setfield(L, -2, "port");
+        len = url_len - len - 1; // port len
+
+        if (len > 5) { // too long port
+            // do not push invalid port
+
+            // lua_pushlstring(L, pos + 1, len);
+            // lua_setfield(L, -2, "port");
+        } else {
+            memcpy(port, pos + 1, len);
+
+            lua_pushinteger(L, atoi(port));
+            lua_setfield(L, -2, "port");
+        }
     } else {
         lua_pushlstring(L, url + start, url_len);
         lua_setfield(L, -2, "host");
