@@ -168,9 +168,7 @@ static int lua_etc_parse_url(lua_State *L) {
 
         len = url_len - len - 1; // port len
 
-        if (len > 5) { // too long port
-            // do not push invalid port
-
+        if (len > 5) { // do not push invalid port
             // lua_pushlstring(L, pos + 1, len);
             // lua_setfield(L, -2, "port");
         } else {
@@ -179,9 +177,28 @@ static int lua_etc_parse_url(lua_State *L) {
             lua_pushinteger(L, atoi(port));
             lua_setfield(L, -2, "port");
         }
+
+        url_len -= len + 1;
     } else {
         lua_pushlstring(L, url + start, url_len);
         lua_setfield(L, -2, "host");
+    }
+
+    posx = NULL;
+
+    while (1) {
+        pos = strchr(url + start, '.');
+        if (pos == NULL) break;
+        len = pos - url - start;
+        if (len >= url_len) break;
+        start += len + 1;
+        url_len -= len + 1;
+        posx = pos;
+    }
+
+    if (posx != NULL) {
+        lua_pushlstring(L, url + start, url_len);
+        lua_setfield(L, -2, "zone");
     }
 
     return 1;

@@ -6,9 +6,9 @@ local get_meta_tags = require "detectors/get_meta_tags"
 return function(html)
     local meta_tags = get_meta_tags(html)
     local url = meta_tags["og:url"]
+    local domain_zone = etc.parse_url(url or "").zone
 
-    trace(etc.parse_url("https://user:pass@host.com:8080/pa@th/a/b?a=b&c=d#hash/xx?y=xxxx"))
-    trace(etc.parse_url(url))
+io.write("domain_zone: ", trace.str(domain_zone))
 
     return {
         -- file_name
