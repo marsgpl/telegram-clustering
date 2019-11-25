@@ -53,7 +53,7 @@ local reader_on_packet = function(packet)
         return true -- communication finished
     elseif packet.file then
         local content = packet.file.content or assert(fs.readfile(packet.file.path))
-        local result = task(content)
+        local result = task(content, packet.file.path)
 
         result.file_name = packet.file.name
 

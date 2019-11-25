@@ -16,7 +16,7 @@ local c = class:Cluster {
             amount = 1, -- as many as input dirs amount (source_dir)
             file = "logic/threads/reader.luac",
             read_files = false, -- true if workers are on different machine
-            files_limit = 1, -- stop after reading N files
+            -- files_limit = 10, -- stop after reading N files
         },
         workers = {
             amount = 6, -- as many as cpus cores (or less)
