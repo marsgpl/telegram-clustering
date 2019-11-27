@@ -2,7 +2,7 @@ ifndef TGNEWS
 $(error "use libs.sh to build")
 endif
 
-NAME = etc
+NAME = sys
 
 CC = gcc
 LD = gcc

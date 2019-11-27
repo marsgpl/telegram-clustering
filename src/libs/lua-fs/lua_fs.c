@@ -32,6 +32,8 @@ static int lua_fs_readfile(lua_State *L) {
 
     lua_pushstring(L, string);
 
+    free(string);
+
     return 1;
 }
 

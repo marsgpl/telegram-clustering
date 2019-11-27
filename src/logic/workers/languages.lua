@@ -1,21 +1,20 @@
-local etc = require "etc"
-local get_meta_tags = require "detectors/get_meta_tags"
+local language = require "detectors/language"
 
--- local filter_langs = {"ru", "en"}
+local filter_langs = {
+    en = true,
+    ru = true,
+}
 
-return function(html, path)
-    local meta_tags = get_meta_tags(html)
-    local url = meta_tags["og:url"]
-    local domain_zone = etc.parse_url(url or "").zone
+return function(file)
+    local info = {
+        file = file,
+    }
 
-    if not meta_tags["og:description"] then
-        io.write("html: ", trace.str(html))
-        print(path)
-    end
+    language(info)
 
     return {
-        -- file_name
-        accept = false,
-        lang = "en",
+        accept = filter_langs[info.language],
+        name = info.file.name,
+        language = info.language,
     }
 end

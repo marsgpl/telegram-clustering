@@ -1,7 +1,9 @@
-return function(html)
+return function(info)
+    if info.meta_tags then return end
+
     local tags = {}
 
-    for tag in html:gmatch("<[Mm][Ee][Tt][Aa].->") do
+    for tag in info.file.content:gmatch("<[Mm][Ee][Tt][Aa].->") do
         local property, content
 
         for key, val in tag:gmatch("([%a]+)=\"([^\"]+)\"") do
@@ -19,5 +21,5 @@ return function(html)
         end
     end
 
-    return tags
+    info.meta_tags = tags
 end

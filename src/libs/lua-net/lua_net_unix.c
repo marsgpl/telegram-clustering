@@ -101,9 +101,11 @@ static int lua_net_unix_socket_bind(lua_State *L) {
         lua_errno(L);
     }
 
+    if (sock->addr) free(sock->addr);
     sock->addr = malloc(path_len+1);
 
     if (sock->addr == NULL) {
+        unlink(path);
         lua_fail(L, "malloc failed for sock->addr", 0);
     }
 
@@ -114,6 +116,7 @@ static int lua_net_unix_socket_bind(lua_State *L) {
     r = chmod(path, (mode_t)mode);
 
     if (r == -1) {
+        unlink(path);
         lua_errno(L);
     }
 

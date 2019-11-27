@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/tgnews/src/libs/lua-text/utf8proc/utf8proc.c
+utf8proc.h
+/tgnews/src/libs/lua-text/utf8proc/utf8proc.h
+utf8proc_data.c
+/tgnews/src/libs/lua-text/utf8proc/utf8proc_data.c
+
+/tgnews/src/libs/lua-text/utf8proc/utf8proc.h
+stdlib.h
+-
+stddef.h
+-
+stdbool.h
+-
+inttypes.h
+-
+limits.h
+-
+
+/tgnews/src/libs/lua-text/utf8proc/utf8proc_data.c
+

@@ -1,4 +1,4 @@
-local etc = require "etc"
+local sys = require "sys"
 local json = require "cjson"
 local UnixSocket = require "UnixSocket"
 local UnixSocketClient = require "UnixSocketClient"
@@ -11,7 +11,7 @@ local c = class:UnixSocketServer {
 }:extends { UnixSocket }
 
 function c:listen()
-    etc.unlink(self.path) -- if path does not exist - silently ignore
+    sys.unlink(self.path) -- if path does not exist - silently ignore
 
     assert(self.sock:bind(self.path))
     assert(self.sock:listen())

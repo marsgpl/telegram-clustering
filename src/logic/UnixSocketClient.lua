@@ -1,5 +1,5 @@
 local net = require "net"
-local etc = require "etc"
+local sys = require "sys"
 local json = require "cjson"
 local UnixSocket = require "UnixSocket"
 
@@ -24,7 +24,7 @@ function c:connect()
             or en == net.e.EINPROGRESS -- can't connect immediately
             or en == net.e.EAGAIN -- can't connect immediately
         then
-            etc.sleep(0.0001)
+            sys.sleep(0.0001)
         else
             error(es)
         end

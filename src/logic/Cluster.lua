@@ -16,14 +16,16 @@ local c = class:Cluster {
             amount = 1, -- as many as input dirs amount (source_dir)
             file = "logic/threads/reader.luac",
             read_files = false, -- true if workers are on different machine
-            -- files_limit = 10, -- stop after reading N files
+            -- files_limit = 1, -- stop after reading N files
         },
         workers = {
-            amount = 6, -- as many as cpus cores (or less)
+            amount = 1, -- as many as cpus cores (or less)
             file = "logic/threads/worker.luac",
+            timeout = 999999999,
         },
         reporter = {
             file = "logic/threads/reporter.luac",
+            timeout = 999999999,
         },
     },
     resources = {
@@ -114,6 +116,7 @@ function c:init_workers()
             name = self.task,
             path = self:get_task_path_for_worker(true),
         },
+        timeout = conf.timeout,
     }
 
     for index = 1, conf.amount do
@@ -134,6 +137,7 @@ function c:init_reporter()
             name = self.task,
             path = self:get_task_path_for_reporter(true),
         },
+        timeout = conf.timeout,
     }
 
     local t, tid = assert(thread.start(conf.file, args))

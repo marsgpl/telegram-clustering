@@ -33,7 +33,7 @@ reporter:block(true)
 reporter:connect()
 
 local epoll = assert(net.epoll())
-local timeout = 10000
+local timeout = args.timeout or 10000
 local reader_by_fd = {}
 local readers_unfinished = #readers
 
@@ -52,12 +52,8 @@ local reader_on_packet = function(packet)
     if packet.result then
         return true -- communication finished
     elseif packet.file then
-        local content = packet.file.content or assert(fs.readfile(packet.file.path))
-        local result = task(content, packet.file.path)
-
-        result.file_name = packet.file.name
-
-        reporter:send(result)
+        packet.file.content = packet.file.content or assert(fs.readfile(packet.file.path))
+        reporter:send(task(packet.file))
     end
 end
 

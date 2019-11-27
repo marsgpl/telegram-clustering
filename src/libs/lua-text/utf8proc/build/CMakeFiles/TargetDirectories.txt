@@ -1,0 +1,7 @@
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/install/strip.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/edit_cache.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/install.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/rebuild_cache.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/utf8proc.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/list_install_components.dir
+/tgnews/src/libs/lua-text/utf8proc/build/CMakeFiles/install/local.dir

@@ -2,7 +2,7 @@ local report = {}
 local lang_index = {}
 
 return function(packet)
-    local lang = packet.lang
+    local lang = packet.language
 
     if not lang then
         return report
@@ -17,7 +17,7 @@ return function(packet)
         lang_index[lang] = #report
     end
 
-    table.insert(report[lang_index[lang]].articles, packet.file_name)
+    table.insert(report[lang_index[lang]].articles, packet.name)
 
     return report
 end

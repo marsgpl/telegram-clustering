@@ -9,7 +9,7 @@ Telegram clustering challenge participant
     docker run --name tgnewsbuilder --detach --volume $TGNEWS_ROOT_DIR/:/tgnews/:rw tgnews/builder
     docker exec -it tgnewsbuilder bash
         apt update
-        apt install -y build-essential libreadline-dev
+        apt install -y build-essential libreadline-dev cmake
         alias ll='ls -Albh --color=auto --group-directories-first'
         alias re='cd /tgnews/src && make && cd /tgnews'
         alias rere='cd /tgnews/src && make clean all && cd /tgnews'

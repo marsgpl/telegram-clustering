@@ -29,7 +29,7 @@ workers:listen()
 workers:accept(args.threads.workers.amount)
 
 local epoll = assert(net.epoll())
-local timeout = 10000
+local timeout = args.timeout or 10000
 local reader_by_fd = {}
 local worker_by_fd = {}
 local readers_unfinished = args.threads.readers.amount
