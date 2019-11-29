@@ -24,15 +24,46 @@ static int lua_fs_readfile(lua_State *L) {
         lua_fail(L, "malloc failed for lua_fs_readfile('%s')", 0, path);
     }
 
-    fread(string, 1, f_size, f);
+    size_t bytes_read = fread(string, 1, f_size, f);
 
     fclose(f);
+
+    if (bytes_read != f_size) {
+        free(string);
+        lua_fail(L, "fread failed for path '%s': bytes read (%ld) != file length (%ld)",
+            errno, path, bytes_read, f_size);
+    }
 
     string[f_size] = 0;
 
     lua_pushstring(L, string);
 
     free(string);
+
+    return 1;
+}
+
+static int lua_fs_writefile(lua_State *L) {
+    size_t content_len;
+    const char *path = luaL_checkstring(L, 1);
+    const char *content = luaL_checklstring(L, 2, &content_len);
+
+    FILE *f = fopen(path, "wb");
+
+    if (f == NULL) {
+        lua_fail(L, "fopen failed for path '%s': %s", errno, path, strerror(errno));
+    }
+
+    size_t bytes_wrote = fwrite(content, sizeof(char), content_len, f);
+
+    fclose(f);
+
+    if (bytes_wrote != content_len) {
+        lua_fail(L, "fwrite failed for path '%s': bytes wrote (%ld) != content length (%ld)",
+            errno, path, bytes_wrote, content_len);
+    }
+
+    lua_pushinteger(L, bytes_wrote);
 
     return 1;
 }

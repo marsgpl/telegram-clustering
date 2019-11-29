@@ -1,7 +1,7 @@
 return function(str)
     return (str
         :gsub("https?://[^ ]+", "")
-        :gsub("www%.[^ ]+", "")
-        :gsub("[a-zA-Z0-9_-]+%.[a-zA-Z0-9_-]+/", "")
+        :gsub("[^ ]-www%.[^ ]+", "")
+        :gsub("[^ ]-[%w-_]+%.[%w-_]+/[^ ]-", "")
     )
 end

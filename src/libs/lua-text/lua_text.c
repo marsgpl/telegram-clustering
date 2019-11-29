@@ -251,6 +251,57 @@ static inline int utf8_char_len(const unsigned char *s) {
     }
 }
 
+static int lua_text_replace_chars(lua_State *L) {
+    const char *string = luaL_checkstring(L, 1);
+    const char *alphabet = luaL_checkstring(L, 2);
+    const char *char_str = luaL_checkstring(L, 3);
+    char c = char_str[0];
+    char *dst = malloc(strlen(string) + 1); // worst case: all symbols copied
+    int index = 0;
+    int len;
+    int found;
+    char symbol[5];
+
+    if (dst == NULL) {
+        lua_fail(L, "malloc failed for lua_text_replace_chars", 0);
+    }
+
+    while (*string) {
+        len = utf8_char_len((unsigned char *)string);
+
+        if (len == 0) { // end of string
+            break;
+        } else if (len == -1) { // invalid utf8
+            len = 1;
+            dst[index++] = c;
+            string += len;
+        } else {
+            if (len == 1) {
+                found = (strchr(alphabet, *string) != NULL);
+            } else {
+                memcpy(symbol, string, len);
+                symbol[len] = 0;
+                found = (strstr(alphabet, symbol) != NULL);
+            }
+
+            if (!found) {
+                while (len--) dst[index++] = *(string++);
+            } else {
+                dst[index++] = c;
+                string += len;
+            }
+        }
+    }
+
+    dst[index] = 0;
+
+    lua_pushstring(L, dst);
+
+    free(dst);
+
+    return 1;
+}
+
 // arg#1 - string
 // arg#2 - alphabet - just a string containing all desired letters/codepoints
 // if arg#3 true - all non-alphabet chars will be removed from string
@@ -276,7 +327,7 @@ static int lua_text_strip_chars(lua_State *L) {
             break;
         } else if (len == -1) { // invalid utf8
             len = 1;
-            while (len--) dst[index++] = *(string++);
+            dst[index++] = *(string++);
         } else {
             if (len == 1) {
                 found = (strchr(alphabet, *string) != NULL);
@@ -303,14 +354,44 @@ static int lua_text_strip_chars(lua_State *L) {
     return 1;
 }
 
-static int lua_text_collapse_whitespace(lua_State *L) {
+static int lua_text_strip_whitespace(lua_State *L) {
     const char *string = luaL_checkstring(L, 1);
     char *dst = malloc(strlen(string) + 1); // worst case: all symbols copied
+    int index = 0;
+
+    if (dst == NULL) {
+        lua_fail(L, "malloc failed for lua_text_strip_whitespace", 0);
+    }
+
+    for ( ; *string; string++) {
+        if (!isspace(*string)) {
+            dst[index++] = *string;
+        }
+    }
+
+    dst[index] = 0;
+
+    lua_pushstring(L, dst);
+
+    free(dst);
+
+    return 1;
+}
+
+static int lua_text_collapse_whitespace(lua_State *L) {
+    const char *string = luaL_checkstring(L, 1);
+    int add_edge_spaces = lua_toboolean(L, 2); // default: do not add
+    char *dst = malloc(strlen(string) + 1 + 2); // worst case: all symbols copied
     int index = 0;
     int last_is_space = 0;
 
     if (dst == NULL) {
         lua_fail(L, "malloc failed for lua_text_collapse_whitespace", 0);
+    }
+
+    if (add_edge_spaces) {
+        dst[index++] = ' ';
+        last_is_space = 1;
     }
 
     for ( ; *string; string++) {
@@ -326,6 +407,10 @@ static int lua_text_collapse_whitespace(lua_State *L) {
     }
 
     while (isspace(dst[index - 1])) index--;
+
+    if (add_edge_spaces) {
+        dst[index++] = ' ';
+    }
 
     dst[index] = 0;
 
@@ -346,5 +431,40 @@ static int lua_text_normalize(lua_State *L) {
 
     free(result);
 
+    return 1;
+}
+
+static int lua_text_find_grams(lua_State *L) {
+    size_t str_len;
+    const char *string = luaL_checklstring(L, 1, &str_len);
+
+    if (!lua_istable(L, 2)) {
+        lua_fail(L, "arg#2 must be a table", 0);
+    }
+
+    int limit = luaL_optinteger(L, 3, 0);
+    int found = 0;
+
+    if (!str_len) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+
+    lua_pushnil(L);
+    while (lua_next(L, 2) != 0) {
+        const char *gram = lua_tostring(L, -1);
+
+        if (strstr(string, gram) != NULL) {
+            found++;
+
+            if (limit > 0 && found >= limit) {
+                break;
+            }
+        }
+
+        lua_pop(L, 1);
+    }
+
+    lua_pushinteger(L, found);
     return 1;
 }

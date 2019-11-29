@@ -4,7 +4,7 @@
 
 #define ENTRY_POINT_FILE "logic/tgnews.luac"
 
-#define PACKAGE_PATH "libs/?.luac;logic/?.luac"
+#define PACKAGE_PATH "libs/?.luac;logic/?.luac;grams/?.lua"
 #define PACKAGE_CPATH "libs/?.so"
 
 #define USAGE "Usage:  tgnews TASK SRCDIR\n" \

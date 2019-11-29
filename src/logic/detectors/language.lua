@@ -1,62 +1,74 @@
 local text = require "text"
-local word_count = require "detectors/helpers/word_count"
+
 local strip_urls = require "detectors/helpers/strip_urls"
 local strip_emails = require "detectors/helpers/strip_emails"
-local strip_html_urls = require "detectors/helpers/strip_html_urls"
 
-local alpha_en = require "data/alphabet/en"
-local alpha_ru = require "data/alphabet/ru"
-local digits = require "data/digits"
-local punct = require "data/punctuation"
-local space = require "data/space"
+local chars = {
+    alpha_en = require "chars/alphabet/en",
+    alpha_ru = require "chars/alphabet/ru",
+    currency = require "chars/currency",
+    digits = require "chars/digits",
+    punct = require "chars/punctuation",
+    space = require "chars/space",
+}
 
-local digits_punct = digits .. punct
-local en_space = alpha_en .. space
-local ru_space = alpha_ru .. space
+local grams = {
+    en2 = require "en2grams",
+    ru2 = require "ru2grams",
+}
 
-local norm = text.normalize
-local strip = text.strip_chars
-local trim = text.collapse_whitespace
+chars.currency_digits_punct = chars.currency .. chars.digits .. chars.punct
 
-local strip_html = function(str)
-    return text.strip_tags(strip_html_urls(str))
-end
-
-local prep_text = function(str)
-    return trim(strip(strip_emails(strip_urls(norm(str))), digits_punct))
-end
-
-local wc = function(str)
-    return {
-        all = word_count(str),
-        ru = word_count(trim(strip(str, ru_space, true))),
-        en = word_count(trim(strip(str, en_space, true))),
-    }
-end
-
-local index = 0
-local last = 705
+local INTERACTIVE = true
+local INTERACTIVE_INDEX = 0
+local INTERACTIVE_LAST = 0
 
 return function(info)
     if info.language then return end
 
-index = index + 1
-if index < last then return end
-
-    local all = prep_text(strip_html(info.file.content))
-    local rwc = wc(all)
-    local rest = trim(strip(all, alpha_en .. alpha_ru .. space))
-
-    if #rest > 0 then
-        print(("\n"):rep(50))
-        print(info.file.path)
-        trace(all)
-        print("all: "..rwc.all.."  en: "..rwc.en.."  ru: "..rwc.ru)
-        trace(rest)
-        last = index
-        print("\nlast = " .. last)
-        io.read()
+    if INTERACTIVE then
+        INTERACTIVE_INDEX = INTERACTIVE_INDEX + 1
+        if INTERACTIVE_INDEX < INTERACTIVE_LAST then return end
     end
 
-    info.language = info.domain_zone
+    local target = info.file.content
+
+    target = text.strip_tags(target)
+    target = text.normalize(target)
+    target = strip_urls(target)
+    target = strip_emails(target)
+    target = text.strip_chars(target, chars.currency_digits_punct)
+
+    local only_letters = text.strip_whitespace(target)
+    local only_ru = text.strip_chars(only_letters, chars.alpha_ru, true)
+    local only_en = text.strip_chars(only_letters, chars.alpha_en, true)
+    local is_cyr = #only_ru > #only_letters/2
+    local is_latin = #only_en > #only_letters/2
+
+    if is_cyr or is_latin then
+        local only_words = text.collapse_whitespace(target, true)
+        local words_count = #only_words > 0 and #(text.strip_chars(only_words, chars.space, true)) + 1 or 0
+        -- local avg_word_len = #only_words / words_count
+        local need_grams = words_count > 10 and math.ceil(words_count / 5) or 1
+        local grams_found = text.find_grams(only_words, is_latin and grams.en2 or grams.ru2, need_grams)
+        local grams_score = grams_found / need_grams
+
+        -- if is_cyr then
+        --     if grams_score <= .4 then
+        --         io.write("info: ", trace.str(info))
+        --         io.write("only_words: ", trace.str(only_words))
+
+        --     end
+        -- end
+
+        if grams_score > .4 then
+            info.language = is_latin and "en" or "ru"
+        end
+    end
+
+    if INTERACTIVE then
+        INTERACTIVE_LAST = INTERACTIVE_INDEX
+        print("\nINTERACTIVE_LAST = " .. INTERACTIVE_LAST)
+        io.read()
+    end
 end
