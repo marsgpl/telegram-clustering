@@ -3,7 +3,7 @@
 static lua_State *globalL = NULL; // for tgnews_on_sigint
 
 int main(int argc, const char **argv) {
-    if (argc != 3) fail("not enough args" "\n\n" USAGE);
+    if (argc < 3) fail("not enough args" "\n\n" USAGE);
 
     const char *task = argv[1];
     const char *src_dir = argv[2];
@@ -58,6 +58,7 @@ static int tgnews_lua_pcall_errmsg_handler(lua_State *L) {
             // error object produces a string via __tostring metatable method call
             // return this result w/o traceback
             return 1;
+
         } else {
             msg = lua_pushfstring(L, "(error object is a %s value)", luaL_typename(L, 1));
         }

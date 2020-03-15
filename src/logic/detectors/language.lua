@@ -10,6 +10,7 @@ local chars = {
     digits = require "chars/digits",
     punct = require "chars/punctuation",
     space = require "chars/space",
+    ua_vs_ru = require "chars/ua_vs_ru",
 }
 
 local grams = {
@@ -19,17 +20,17 @@ local grams = {
 
 chars.currency_digits_punct = chars.currency .. chars.digits .. chars.punct
 
-local INTERACTIVE = true
-local INTERACTIVE_INDEX = 0
-local INTERACTIVE_LAST = 0
+-- local INTERACTIVE = true
+-- local INTERACTIVE_INDEX = 0
+-- local INTERACTIVE_LAST = 42
 
 return function(info)
     if info.language then return end
 
-    if INTERACTIVE then
-        INTERACTIVE_INDEX = INTERACTIVE_INDEX + 1
-        if INTERACTIVE_INDEX < INTERACTIVE_LAST then return end
-    end
+    -- if INTERACTIVE then
+    --     INTERACTIVE_INDEX = INTERACTIVE_INDEX + 1
+    --     if INTERACTIVE_INDEX < INTERACTIVE_LAST then return end
+    -- end
 
     local target = info.file.content
 
@@ -39,36 +40,34 @@ return function(info)
     target = strip_emails(target)
     target = text.strip_chars(target, chars.currency_digits_punct)
 
-    local only_letters = text.strip_whitespace(target)
-    local only_ru = text.strip_chars(only_letters, chars.alpha_ru, true)
-    local only_en = text.strip_chars(only_letters, chars.alpha_en, true)
-    local is_cyr = #only_ru > #only_letters/2
-    local is_latin = #only_en > #only_letters/2
+    local letters = text.strip_whitespace(target)
+    local only_ru = text.strip_chars(letters, chars.alpha_ru, true)
+    local only_en = text.strip_chars(letters, chars.alpha_en, true)
+    local is_cyr = #only_ru > (#letters) / 2
+    local is_latin = #only_en > (#letters) / 2
 
     if is_cyr or is_latin then
-        local only_words = text.collapse_whitespace(target, true)
-        local words_count = #only_words > 0 and #(text.strip_chars(only_words, chars.space, true)) + 1 or 0
-        -- local avg_word_len = #only_words / words_count
-        local need_grams = words_count > 10 and math.ceil(words_count / 5) or 1
-        local grams_found = text.find_grams(only_words, is_latin and grams.en2 or grams.ru2, need_grams)
-        local grams_score = grams_found / need_grams
+        local words = text.collapse_whitespace(target, true)
+        local words_grams, word_grams_count = text.split_2grams(words, 200)
+        local grams_found = text.find_2grams(is_latin and grams.en2 or grams.ru2, words_grams, 20)
+        local score = grams_found / word_grams_count
+        -- local ua_entries = is_cyr and text.count_chars(words, chars.ua_vs_ru) or 0
 
-        -- if is_cyr then
-        --     if grams_score <= .4 then
-        --         io.write("info: ", trace.str(info))
-        --         io.write("only_words: ", trace.str(only_words))
+        -- if is_cyr and INTERACTIVE then
+        --     io.write("words: ", trace.str(words))
+        --     io.write("charset: ", trace.str(is_cyr and "cyr" or "lat"))
+        --     io.write("word_grams_count: ", trace.str(word_grams_count))
+        --     io.write("grams_found: ", trace.str(grams_found))
+        --     io.write("score: ", trace.str(score))
+        --     io.write("ua_entries: ", trace.str(ua_entries))
 
-        --     end
+        --     INTERACTIVE_LAST = INTERACTIVE_INDEX
+        --     print("\nINTERACTIVE_LAST = " .. INTERACTIVE_LAST)
+        --     io.read()
         -- end
 
-        if grams_score > .4 then
+        if grams_found >= 10 or score >= .05 then
             info.language = is_latin and "en" or "ru"
         end
-    end
-
-    if INTERACTIVE then
-        INTERACTIVE_LAST = INTERACTIVE_INDEX
-        print("\nINTERACTIVE_LAST = " .. INTERACTIVE_LAST)
-        io.read()
     end
 end

@@ -14,7 +14,7 @@
         fprintf(stderr, "\t%d: %s: ", i, lua_typename(L, t)); \
         if (t == LUA_TNIL || t == LUA_TNONE) fprintf(stderr, "nil"); \
         else if (t == LUA_TNUMBER) fprintf(stderr, LUA_NUMBER_FMT, lua_tonumber(L, i)); \
-        else if (t == LUA_TSTRING) fprintf(stderr, "%s", lua_tostring(L, i)); \
+        else if (t == LUA_TSTRING) fprintf(stderr, "'%s'", lua_tostring(L, i)); \
         else if (t == LUA_TBOOLEAN) fprintf(stderr, lua_toboolean(L, i) ? "true" : "false"); \
         else fprintf(stderr, "%p", lua_topointer(L, i)); \
         fprintf(stderr, "\n"); \

@@ -258,9 +258,9 @@ static int lua_text_replace_chars(lua_State *L) {
     char c = char_str[0];
     char *dst = malloc(strlen(string) + 1); // worst case: all symbols copied
     int index = 0;
-    int len;
     int found;
     char symbol[5];
+    int len;
 
     if (dst == NULL) {
         lua_fail(L, "malloc failed for lua_text_replace_chars", 0);
@@ -272,9 +272,8 @@ static int lua_text_replace_chars(lua_State *L) {
         if (len == 0) { // end of string
             break;
         } else if (len == -1) { // invalid utf8
-            len = 1;
             dst[index++] = c;
-            string += len;
+            string++;
         } else {
             if (len == 1) {
                 found = (strchr(alphabet, *string) != NULL);
@@ -312,9 +311,9 @@ static int lua_text_strip_chars(lua_State *L) {
     int keep = lua_toboolean(L, 3); // default: 0
     char *dst = malloc(strlen(string) + 1); // worst case: all symbols copied
     int index = 0;
-    int len;
     int found;
     char symbol[5];
+    int len;
 
     if (dst == NULL) {
         lua_fail(L, "malloc failed for lua_text_strip_chars", 0);
@@ -326,7 +325,6 @@ static int lua_text_strip_chars(lua_State *L) {
         if (len == 0) { // end of string
             break;
         } else if (len == -1) { // invalid utf8
-            len = 1;
             dst[index++] = *(string++);
         } else {
             if (len == 1) {
@@ -374,6 +372,64 @@ static int lua_text_strip_whitespace(lua_State *L) {
     lua_pushstring(L, dst);
 
     free(dst);
+
+    return 1;
+}
+
+static int lua_text_count_chars(lua_State *L) {
+    const char *string = luaL_checkstring(L, 1);
+    const char *alphabet = luaL_checkstring(L, 2);
+
+    int found = 0;
+    char symbol[5];
+    int len;
+    char *tmp;
+
+    while (*alphabet) {
+        len = utf8_char_len((unsigned char *)alphabet);
+
+        if (len == 0) { // end of string
+            break;
+        } else if (len == -1) { // invalid utf8
+            alphabet++;
+        } else {
+            if (len == 1) {
+                tmp = (char *)string;
+                while ((tmp = strchr(tmp, *alphabet))) {
+                    found++;
+                    tmp++;
+                }
+            } else {
+                memcpy(symbol, alphabet, len);
+                symbol[len] = 0;
+                tmp = (char *)string;
+                while ((tmp = strstr(tmp, symbol))) {
+                    found++;
+                    tmp += len;
+                }
+            }
+
+            alphabet += len;
+        }
+    }
+
+    lua_pushinteger(L, found);
+
+    return 1;
+}
+
+static int lua_text_count_whitespace(lua_State *L) {
+    const char *string = luaL_checkstring(L, 1);
+
+    int found = 0;
+
+    while (*(string++)) {
+        if (isspace(*string)) {
+            found++;
+        }
+    }
+
+    lua_pushinteger(L, found);
 
     return 1;
 }
@@ -434,37 +490,82 @@ static int lua_text_normalize(lua_State *L) {
     return 1;
 }
 
-static int lua_text_find_grams(lua_State *L) {
+static int lua_text_split_2grams(lua_State *L) {
     size_t str_len;
     const char *string = luaL_checklstring(L, 1, &str_len);
+    int limit = luaL_optnumber(L, 2, 0);
 
-    if (!lua_istable(L, 2)) {
-        lua_fail(L, "arg#2 must be a table", 0);
-    }
-
-    int limit = luaL_optinteger(L, 3, 0);
-    int found = 0;
+    lua_newtable(L);
 
     if (!str_len) {
-        lua_pushinteger(L, 0);
         return 1;
     }
 
+    char *space_pos[3] = { NULL, NULL, NULL };
+    char *pos;
+
+    int spaces_found = 0;
+    int grams_found = 0;
+
+    while (*string) {
+        pos = strchr(string, ' ');
+        if (pos == NULL) break;
+
+        string = pos + 1;
+        spaces_found++;
+
+        if (spaces_found == 1) {
+            space_pos[0] = pos;
+        } else if (spaces_found == 2) {
+            space_pos[1] = pos;
+        } else if (spaces_found == 3) {
+            space_pos[2] = pos;
+
+            lua_pushlstring(L, space_pos[0], space_pos[2] - space_pos[0] + 1);
+            lua_pushboolean(L, 1);
+            lua_settable(L, -3);
+
+            space_pos[0] = space_pos[1];
+            space_pos[1] = space_pos[2];
+
+            spaces_found--;
+            grams_found++;
+
+            if (limit && grams_found >= limit) {
+                break;
+            }
+        }
+    }
+
+    lua_pushinteger(L, grams_found);
+
+    return 2;
+}
+
+static int lua_text_find_2grams(lua_State *L) {
+    if (!lua_istable(L, 1)) lua_fail(L, "arg#1 must be a table: dictionary", 0);
+    if (!lua_istable(L, 2)) lua_fail(L, "arg#2 must be a table: grams to find in dictionary", 0);
+    int limit = luaL_optnumber(L, 3, 0);
+    lua_settop(L, 3);
+
+    int found = 0;
+
     lua_pushnil(L);
     while (lua_next(L, 2) != 0) {
-        const char *gram = lua_tostring(L, -1);
-
-        if (strstr(string, gram) != NULL) {
+        if (lua_getfield(L, 1, lua_tostring(L, -2)) != LUA_TNIL) {
             found++;
 
-            if (limit > 0 && found >= limit) {
+            // printf("gram found: ' %s '\n", lua_tostring(L, -3));
+
+            if (limit && found >= limit) {
                 break;
             }
         }
 
-        lua_pop(L, 1);
+        lua_pop(L, 2);
     }
 
     lua_pushinteger(L, found);
+
     return 1;
 }

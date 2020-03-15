@@ -19,7 +19,7 @@ local c = class:Cluster {
             files_limit = 1000, -- stop after reading N files
         },
         workers = {
-            amount = 1, -- as many as cpus cores (or less)
+            amount = 6, -- as many as cpus cores (or less)
             file = "logic/threads/worker.luac",
             timeout = 999999999,
         },
